@@ -42,6 +42,17 @@ PHP_FUNCTION(element){
 	switch(Z_TYPE_P(item)){
 		case IS_STRING:
 			if( zend_hash_find(array, Z_STRVAL_P(item), Z_STRLEN_P(item)+1, (void**)&pdata) == SUCCESS ){
+				/*php_printf("%p\n",*return_value_ptr);
+				php_printf("%p\n",return_value);
+				zval_ptr_dtor(return_value_ptr);
+				return_value = *pdata;
+				return_value_ptr = &return_value;
+				php_printf("%p\n",*return_value_ptr);
+				php_printf("%p\n",return_value);
+				php_printf("%p\n",*pdata);
+
+				php_printf("%d\n",Z_TYPE_P(return_value));
+				php_printf("%s\n",Z_STRVAL_P(return_value));*/
 				RETVAL_ZVAL(*pdata, 1, 0);
 				return;
 			}
@@ -130,7 +141,15 @@ PHP_FUNCTION(elements){
 			}
 			if(key_len){
 				if( zend_hash_find(array, key, key_len, (void**)&value) == SUCCESS ){
-					Z_ADDREF_P(*value);
+					zval *temp;
+					if(PZVAL_IS_REF(*value)){
+						MAKE_STD_ZVAL(temp);
+						ZVAL_COPY_VALUE(temp,*value);
+						zval_copy_ctor(temp);
+						value = &temp;
+					}else{
+						Z_ADDREF_P(*value);
+					}
 					zend_hash_update(Z_ARRVAL_P(return_value), key, key_len, value, sizeof(zval *), NULL);
 				}else{
 					Z_ADDREF_P(dft);
@@ -138,7 +157,15 @@ PHP_FUNCTION(elements){
 				}
 			}else{
 				if( zend_hash_index_find(array, idx, (void**)&value) == SUCCESS ){
-					Z_ADDREF_P(*value);
+					zval *temp;
+					if(PZVAL_IS_REF(*value)){
+						MAKE_STD_ZVAL(temp);
+						ZVAL_COPY_VALUE(temp,*value);
+						zval_copy_ctor(temp);
+						value = &temp;
+					}else{
+						Z_ADDREF_P(*value);
+					}
 					zend_hash_index_update(Z_ARRVAL_P(return_value), idx, value, sizeof(zval *), NULL);
 				}else{
 					Z_ADDREF_P(dft);
@@ -150,5 +177,20 @@ PHP_FUNCTION(elements){
 		php_printf("%d\n",(dft->refcount__gc));
 		php_printf("%d\n",(dft->is_ref__gc));*/
 		}
+	}
+}
+
+/**
+* Random Element - Takes an array as input and returns a random element
+*
+* @param	array
+* @return	mixed	depends on what the array contains
+*
+* random_element($array)
+*/
+PHP_FUNCTION(random_element){
+	HashTable *array;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "H", &array) == FAILURE){
+		return;
 	}
 }

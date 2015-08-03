@@ -3,11 +3,11 @@
 zend_class_entry *cii_loader_ce;
 
 //usefulless.bing mei you sen me ruan yong
-ZEND_BEGIN_ARG_INFO_EX(cii_loader_view_arginfo,0,0,1)
+/*ZEND_BEGIN_ARG_INFO_EX(cii_loader_view_arginfo,0,0,1)
 	ZEND_ARG_INFO(0,view)
 	ZEND_ARG_ARRAY_INFO(0,data,1)
 	ZEND_ARG_INFO(0,return)
-ZEND_END_ARG_INFO()
+ZEND_END_ARG_INFO()*/
 
 #define CII_STORE_EG_ENVIRON() \
 	{ \
@@ -21,7 +21,7 @@ ZEND_END_ARG_INFO()
 		EG(active_op_array)		 = __old_op_array; \
 	}
 
-int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
+ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 	zend_file_handle file_handle;
 	zend_op_array 	*op_array;
 	char realpath[MAXPATHLEN];
@@ -116,7 +116,7 @@ PHP_METHOD(cii_loader,view){
 		char *file;
 		uint len;
 
-		len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/", view, ".php");
+		len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/cii/views/", view, ".php");
 
 		retval = (zend_hash_exists(&EG(included_files), file, len + 1));
 		if (retval) {
@@ -131,19 +131,21 @@ PHP_METHOD(cii_loader,view){
 			int key_len;
 			ulong idx;
 			zval **value;
-			//using Bucket* pos to make sure not modify data's hashtable internal pointer
+			//using HashPosition pos to make sure not modify data's hashtable internal pointer
 			HashPosition pos;
+			if (!EG(active_symbol_table)) {
+				zend_rebuild_symbol_table(TSRMLS_C);
+			}
 			for(zend_hash_internal_pointer_reset_ex(data, &pos);
 			    zend_hash_has_more_elements_ex(data, &pos) == SUCCESS;
 			    zend_hash_move_forward_ex(data, &pos)){
 				if(zend_hash_get_current_key_ex(data, &key, &key_len, &idx, 0, &pos) != HASH_KEY_IS_STRING){
 					continue;
 				}
-
 				if(zend_hash_get_current_data_ex(data, (void**)&value, &pos) == FAILURE){
 					continue;
 				}
-				ZEND_SET_SYMBOL_WITH_LENGTH(EG(active_symbol_table), key, key_len,*value, Z_REFCOUNT_P(*value) + 1, PZVAL_IS_REF(*value));	
+				ZEND_SET_SYMBOL_WITH_LENGTH(EG(active_symbol_table), key, key_len, *value, Z_REFCOUNT_P(*value) + 1, PZVAL_IS_REF(*value));
 			}
 		}
 
@@ -157,7 +159,7 @@ PHP_METHOD(cii_loader,view){
 				}
 				return;
 			}else{
-				php_error_docref("ref.outcontrol" TSRMLS_CC, E_WARNING, "failed to create buffer");
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create buffer");
 				return;
 			}
 		}else{
@@ -201,7 +203,7 @@ PHP_METHOD(cii_loader,model){
 		char *file;
 		uint len;
 
-		len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/", model, ".php");
+		len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/cii/models/", model, ".php");
 
 		retval = (zend_hash_exists(&EG(included_files), file, len + 1));
 		if (retval) {
@@ -240,7 +242,7 @@ PHP_METHOD(cii_loader,model){
 
 zend_function_entry cii_loader_methods[] = {
 	PHP_ME(cii_loader,__construct,NULL,ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-	PHP_ME(cii_loader,view,cii_loader_view_arginfo,ZEND_ACC_PUBLIC)
+	PHP_ME(cii_loader,view,NULL,ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader,model,NULL,ZEND_ACC_PUBLIC)
 	{NULL,NULL,NULL}
 };
