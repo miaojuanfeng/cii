@@ -29,6 +29,7 @@
 #include "cii_controller.c"
 #include "cii_model.c"
 #include "cii_loader.c"
+#include "cii_helper.c"
 
 
 /* If you declare any globals in php_cii.h uncomment this:
@@ -98,6 +99,7 @@ PHP_MINFO_FUNCTION(cii)
 }
 
 const zend_function_entry cii_functions[] = {
+	CII_HELPER_FUNCTION
 	PHP_FE_END
 };
 
