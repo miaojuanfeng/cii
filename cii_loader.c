@@ -27,6 +27,7 @@ ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 	char realpath[MAXPATHLEN];
 
 	if (!VCWD_REALPATH(path, realpath)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to load the requested file: %s", path);
 		return 0;
 	}
 
@@ -93,6 +94,8 @@ PHP_METHOD(cii_loader,view){
 	HashTable *data = NULL;
 	uint is_return = 0;
 
+	HashTable *old_active_symbol_table;
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|Hl" ,&view, &len,&data,&is_return) == FAILURE) {
 		return;
 	}
@@ -126,6 +129,13 @@ PHP_METHOD(cii_loader,view){
 			RETURN_TRUE;
 		}
 
+		/*if (EG(active_symbol_table)) {
+			zend_rebuild_symbol_table(TSRMLS_C);
+		}*/
+		old_active_symbol_table = EG(active_symbol_table);
+		ALLOC_HASHTABLE(EG(active_symbol_table));
+		zend_hash_init(EG(active_symbol_table), 0, NULL, ZVAL_PTR_DTOR, 0);
+
 		if(data){
 			char *key;
 			int key_len;
@@ -133,9 +143,7 @@ PHP_METHOD(cii_loader,view){
 			zval **value;
 			//using HashPosition pos to make sure not modify data's hashtable internal pointer
 			HashPosition pos;
-			if (!EG(active_symbol_table)) {
-				zend_rebuild_symbol_table(TSRMLS_C);
-			}
+			
 			for(zend_hash_internal_pointer_reset_ex(data, &pos);
 			    zend_hash_has_more_elements_ex(data, &pos) == SUCCESS;
 			    zend_hash_move_forward_ex(data, &pos)){
@@ -145,7 +153,16 @@ PHP_METHOD(cii_loader,view){
 				if(zend_hash_get_current_data_ex(data, (void**)&value, &pos) == FAILURE){
 					continue;
 				}
-				ZEND_SET_SYMBOL_WITH_LENGTH(EG(active_symbol_table), key, key_len, *value, Z_REFCOUNT_P(*value) + 1, PZVAL_IS_REF(*value));
+				if(PZVAL_IS_REF(*value)){
+					zval *temp;
+					MAKE_STD_ZVAL(temp);
+					ZVAL_COPY_VALUE(temp,*value);
+					zval_copy_ctor(temp);
+					value = &temp;
+				}else{
+					Z_ADDREF_P(*value);
+				}
+				zend_hash_update(EG(active_symbol_table), key, key_len, value, sizeof(zval *), NULL);
 			}
 		}
 
@@ -154,9 +171,6 @@ PHP_METHOD(cii_loader,view){
 				retval = cii_loader_import(file, len, 0 TSRMLS_CC);
 				php_output_get_contents(return_value TSRMLS_CC);
 				php_output_discard(TSRMLS_C);
-				if(!retval){
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to load the requested file: %s", file);
-				}
 				return;
 			}else{
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create buffer");
@@ -164,14 +178,15 @@ PHP_METHOD(cii_loader,view){
 			}
 		}else{
 			retval = cii_loader_import(file, len, 0 TSRMLS_CC);
-			if(!retval){
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to load the requested file: %s", file);
-			}
 		}
 
 		if (need_free) {
 			efree(file);
 		}
+
+		zend_hash_destroy(EG(active_symbol_table));
+		FREE_HASHTABLE(EG(active_symbol_table));
+		EG(active_symbol_table) = old_active_symbol_table;
 
 		RETURN_BOOL(retval);
 	}
@@ -233,8 +248,6 @@ PHP_METHOD(cii_loader,model){
 			MAKE_STD_ZVAL(new_object_method_construct);
 			ZVAL_STRING(new_object_method_construct,"__construct",1);
 			call_user_function(NULL, &new_object, new_object_method_construct, *return_value_ptr, 0, NULL TSRMLS_CC);
-		}else{
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to locate the model you have specified: %s", model);
 		}
 		RETURN_BOOL(retval);
 	}
