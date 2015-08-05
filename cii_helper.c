@@ -1,8 +1,8 @@
 #include "cii_helper.h"
 
 #define CII_HELPER_FUNCTION \
-	PHP_FE(element,NULL) \
-	PHP_FE(elements,NULL)
+	PHP_FE(cii_element,NULL) \
+	PHP_FE(cii_elements,NULL)
 
 /*
 *****************************************************************************************
@@ -31,7 +31,7 @@ ZEND_END_ARG_INFO()
 *
 * element($item, $array, $default = NULL)
 */
-PHP_FUNCTION(element){
+PHP_FUNCTION(cii_element){
 	zval *item;
 	HashTable *array;
 	zval *dft = NULL;
@@ -90,7 +90,7 @@ PHP_FUNCTION(element){
 *
 * elements($items, $array, $default = NULL)
 */
-PHP_FUNCTION(elements){
+PHP_FUNCTION(cii_elements){
 	zval *items;
 	HashTable *array;
 	zval *dft = NULL;
@@ -188,7 +188,7 @@ PHP_FUNCTION(elements){
 *
 * random_element($array)
 */
-PHP_FUNCTION(random_element){
+PHP_FUNCTION(cii_random_element){
 	HashTable *array;
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "H", &array) == FAILURE){
 		return;
