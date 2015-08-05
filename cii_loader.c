@@ -253,10 +253,51 @@ PHP_METHOD(cii_loader,model){
 	}
 }
 
+PHP_METHOD(cii_loader,helper){
+	zval *helper = NULL;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z" ,&helper) == FAILURE) {
+		return;
+	}
+
+	if (!helper) {
+		RETURN_FALSE;
+	} else {
+		int  retval = 0;
+
+		char *file;
+		uint len;
+
+		HashPosition pos;
+		zval **data;
+
+		if(Z_TYPE_P(helper)!=IS_ARRAY){
+			convert_to_array(helper);
+		}
+
+		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(helper), &pos);
+			zend_hash_get_current_data_ex(Z_ARRVAL_P(helper), (void**)&data, &pos) == SUCCESS;
+			zend_hash_move_forward_ex(Z_ARRVAL_P(helper), &pos) ){
+
+				len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/cii/helpers/", Z_STRVAL_P(*data), ".php");
+
+				retval = (zend_hash_exists(&EG(included_files), file, len + 1));
+				if (retval) {
+					continue;
+				}
+
+				retval = cii_loader_import(file, len, 0 TSRMLS_CC);
+
+		}
+		RETURN_BOOL(retval);
+	}
+}
+
 zend_function_entry cii_loader_methods[] = {
 	PHP_ME(cii_loader,__construct,NULL,ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(cii_loader,view,NULL,ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader,model,NULL,ZEND_ACC_PUBLIC)
+	PHP_ME(cii_loader,helper,NULL,ZEND_ACC_PUBLIC)
 	{NULL,NULL,NULL}
 };
 
