@@ -30,6 +30,7 @@
 #include "cii_model.c"
 #include "cii_loader.c"
 #include "cii_helper.c"
+ #include "cii_lang.c"
 
 
 /* If you declare any globals in php_cii.h uncomment this:
@@ -63,9 +64,10 @@ PHP_MINIT_FUNCTION(cii)
 	/* If you have INI entries, uncomment these lines 
 	REGISTER_INI_ENTRIES();
 	*/
-	ZEND_MODULE_STARTUP_N(cii_controller)(INIT_FUNC_ARGS_PASSTHRU);
-	ZEND_MODULE_STARTUP_N(cii_model)(INIT_FUNC_ARGS_PASSTHRU);
-	ZEND_MODULE_STARTUP_N(cii_loader)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_controller)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_model)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_loader)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_lang)(INIT_FUNC_ARGS_PASSTHRU);
 	return SUCCESS;
 }
 

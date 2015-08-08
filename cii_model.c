@@ -30,7 +30,7 @@ PHP_METHOD(cii_model,__get)
 const zend_function_entry cii_model_methods[] = {
 	PHP_ME(cii_model,__construct,NULL,ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(cii_model,__get,cii_model___get_arginfo,ZEND_ACC_PUBLIC)
-	{NULL,NULL,NULL}
+	ZEND_FE_END
 };
 
 ZEND_MINIT_FUNCTION(cii_model){

@@ -298,7 +298,7 @@ zend_function_entry cii_loader_methods[] = {
 	PHP_ME(cii_loader,view,NULL,ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader,model,NULL,ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader,helper,NULL,ZEND_ACC_PUBLIC)
-	{NULL,NULL,NULL}
+	ZEND_FE_END
 };
 
 PHP_MINIT_FUNCTION(cii_loader){

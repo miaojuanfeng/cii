@@ -36,7 +36,7 @@ PHP_METHOD(cii_controller,get_instance){
 const zend_function_entry cii_controller_methods[] = {
 	PHP_ME(cii_controller,__construct,NULL,ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(cii_controller,get_instance,cii_controller_get_instance_arginfo,ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
-	{NULL,NULL,NULL}
+	ZEND_FE_END
 };
 
 ZEND_MINIT_FUNCTION(cii_controller){
