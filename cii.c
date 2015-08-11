@@ -106,9 +106,10 @@ ZEND_END_ARG_INFO()
 PHP_FUNCTION(get_instance)
 {
 	zval *instance = zend_read_static_property(cii_controller_ce, ZEND_STRL("instance"), 1 TSRMLS_CC);
+	zval_ptr_dtor(return_value_ptr);
+	*return_value_ptr = instance;
 	Z_ADDREF_P(instance);
-	Z_SET_ISREF_P(instance);
-	RETURN_ZVAL(instance, 0, 0);
+	return;
 }
 
 const zend_function_entry cii_functions[] = {
