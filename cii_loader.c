@@ -101,6 +101,8 @@ PHP_METHOD(cii_loader,view){
 	HashTable *data = NULL;
 	uint is_return = 0;
 
+	zval **value;
+
 	HashTable *old_active_symbol_table;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|H!l" ,&view, &len, &data, &is_return) == FAILURE) {
@@ -130,7 +132,7 @@ PHP_METHOD(cii_loader,view){
 			char *key;
 			int key_len;
 			ulong idx;
-			zval **value;
+			
 			//using HashPosition pos to make sure not modify data's hashtable internal pointer
 			HashPosition pos;
 			
@@ -161,6 +163,11 @@ PHP_METHOD(cii_loader,view){
 				cii_loader_import(file, len, 0 TSRMLS_CC);
 				php_output_get_contents(return_value TSRMLS_CC);
 				php_output_discard(TSRMLS_C);
+
+				zend_hash_destroy(EG(active_symbol_table));
+				FREE_HASHTABLE(EG(active_symbol_table));
+				EG(active_symbol_table) = old_active_symbol_table;
+
 				return;
 			}else{
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create buffer");
@@ -168,13 +175,14 @@ PHP_METHOD(cii_loader,view){
 			}
 		}else{
 			cii_loader_import(file, len, 0 TSRMLS_CC);
-		}
 
-		zend_hash_destroy(EG(active_symbol_table));
-		FREE_HASHTABLE(EG(active_symbol_table));
-		EG(active_symbol_table) = old_active_symbol_table;
+			zend_hash_destroy(EG(active_symbol_table));
+			FREE_HASHTABLE(EG(active_symbol_table));
+			EG(active_symbol_table) = old_active_symbol_table;
+
+			RETURN_ZVAL(getThis(), 1, 0);
+		}
 	}
-	RETURN_ZVAL(getThis(), 1, 0);
 }
 /**
 * Model Loader
