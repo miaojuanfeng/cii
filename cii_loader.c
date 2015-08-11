@@ -80,53 +80,43 @@ ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 }
 
 PHP_METHOD(cii_loader,__construct){
+	zval *this = getThis();
+	//init cii_loader::_cii_ob_level
 	zval *ob_level;
 	MAKE_STD_ZVAL(ob_level);
-	ZVAL_LONG(ob_level,php_output_get_level(TSRMLS_C));
-	zend_update_property(cii_loader_ce,getThis(),ZEND_STRL("_cii_ob_level"),ob_level TSRMLS_CC);
+	ZVAL_LONG(ob_level, php_output_get_level(TSRMLS_C));
+	zend_update_property(cii_loader_ce, this, ZEND_STRL("_cii_ob_level"), ob_level TSRMLS_CC);
 	zval_ptr_dtor(&ob_level);
+	//init cii_loader::_cii_models
+	zval *_cii_models = zend_read_property(cii_loader_ce, this, ZEND_STRL("_cii_models"), 1 TSRMLS_CC);
+	if(Z_TYPE_P(_cii_models)!=IS_ARRAY){
+		convert_to_array(_cii_models);
+	}
 	php_printf("Info: Loader Class Initialized\n");
 }
 
 PHP_METHOD(cii_loader,view){
 	char *view;
-	uint len, need_free = 0;
+	uint len;
 	HashTable *data = NULL;
 	uint is_return = 0;
 
 	HashTable *old_active_symbol_table;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|Hl" ,&view, &len,&data,&is_return) == FAILURE) {
-		return;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|H!l" ,&view, &len, &data, &is_return) == FAILURE) {
+		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
 	if (!len) {
-		RETURN_FALSE;
+		RETURN_ZVAL(getThis(), 1, 0);
 	} else {
-		int  retval = 0;
-
-		/*if (!IS_ABSOLUTE_PATH(file, len)) {
-			yaf_loader_t *loader = yaf_loader_instance(NULL, NULL, NULL TSRMLS_CC);
-			if (!loader) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s need to be initialize first", yaf_loader_ce->name);
-				RETURN_FALSE;
-			} else {
-				zval *library = zend_read_property(yaf_loader_ce, loader, ZEND_STRL(YAF_LOADER_PROPERTY_NAME_LIBRARY), 1 TSRMLS_CC);
-				len = spprintf(&file, 0, "%s%c%s", Z_STRVAL_P(library), DEFAULT_SLASH, file);
-				need_free = 1;
-			}
-		}*/
 		char *file;
 		uint len;
 
 		len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/cii/views/", view, ".php");
 
-		retval = (zend_hash_exists(&EG(included_files), file, len + 1));
-		if (retval) {
-			if (need_free) {
-				efree(file);
-			}
-			RETURN_TRUE;
+		if(zend_hash_exists(&EG(included_files), file, len + 1)){
+			RETURN_ZVAL(getThis(), 1, 0);
 		}
 
 		/*if (EG(active_symbol_table)) {
@@ -168,7 +158,7 @@ PHP_METHOD(cii_loader,view){
 
 		if(is_return){
 			if(php_output_start_user(NULL, 0, PHP_OUTPUT_HANDLER_STDFLAGS TSRMLS_CC) == SUCCESS){
-				retval = cii_loader_import(file, len, 0 TSRMLS_CC);
+				cii_loader_import(file, len, 0 TSRMLS_CC);
 				php_output_get_contents(return_value TSRMLS_CC);
 				php_output_discard(TSRMLS_C);
 				return;
@@ -177,83 +167,85 @@ PHP_METHOD(cii_loader,view){
 				return;
 			}
 		}else{
-			retval = cii_loader_import(file, len, 0 TSRMLS_CC);
-		}
-
-		if (need_free) {
-			efree(file);
+			cii_loader_import(file, len, 0 TSRMLS_CC);
 		}
 
 		zend_hash_destroy(EG(active_symbol_table));
 		FREE_HASHTABLE(EG(active_symbol_table));
 		EG(active_symbol_table) = old_active_symbol_table;
-
-		RETURN_BOOL(retval);
 	}
+	RETURN_ZVAL(getThis(), 1, 0);
 }
-
-PHP_METHOD(cii_loader,model){
+/**
+* Model Loader
+*
+* Loads and instantiates models.
+*
+* @param	string	$model		Model name
+* @param	string	$name		An optional object name to assign to
+* @return	object
+*
+* public function model($model, $name = '')
+*/
+PHP_METHOD(cii_loader, model){
 	char *model;
-	int model_len, need_free = 0;
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &model, &model_len) == FAILURE){
-		RETURN_NULL();	
+	uint model_len;
+	char *name = NULL;
+	uint name_len;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s!", &model, &model_len, &name, &name_len) == FAILURE){
+		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
-	if (!model_len) {
-		RETURN_FALSE;
-	} else {
-		int  retval = 0;
-
-		/*if (!IS_ABSOLUTE_PATH(file, len)) {
-			yaf_loader_t *loader = yaf_loader_instance(NULL, NULL, NULL TSRMLS_CC);
-			if (!loader) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s need to be initialize first", yaf_loader_ce->name);
-				RETURN_FALSE;
-			} else {
-				zval *library = zend_read_property(yaf_loader_ce, loader, ZEND_STRL(YAF_LOADER_PROPERTY_NAME_LIBRARY), 1 TSRMLS_CC);
-				len = spprintf(&file, 0, "%s%c%s", Z_STRVAL_P(library), DEFAULT_SLASH, file);
-				need_free = 1;
-			}
-		}*/
+	if(!model_len){
+		RETURN_ZVAL(getThis(), 1, 0);
+	}else{
 		char *file;
 		uint len;
 
 		len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/cii/models/", model, ".php");
 
-		retval = (zend_hash_exists(&EG(included_files), file, len + 1));
-		if (retval) {
-			if (need_free) {
-				efree(file);
-			}
-			RETURN_TRUE;
+		if (zend_hash_exists(&EG(included_files), file, len + 1)){
+			RETURN_ZVAL(getThis(), 1, 0);
 		}
 
-		retval = cii_loader_import(file, len, 0 TSRMLS_CC);
+		cii_loader_import(file, len, 0 TSRMLS_CC);
 
-		if (need_free) {
-			efree(file);
-		}
-
-		//
+		//add new object property to cii_controller class
 		zend_class_entry **ce;
 		if(zend_hash_find(CG(class_table),model,model_len+1,(void**)&ce)==SUCCESS){
 			zval *new_object;
-			MAKE_STD_ZVAL(new_object);
-			object_init_ex(new_object,*ce);
-			//
-			zval *CII;
-			CII = get_cii_controller_instance(TSRMLS_C);
-			zend_update_property(cii_controller_ce,CII,ZEND_STRL(model),new_object TSRMLS_CC);
+			zval *CII = get_cii_controller_instance(TSRMLS_C);
 			zval *new_object_method_construct;
+
+			if(name){
+				if( Z_TYPE_P(zend_read_property(cii_controller_ce, CII, name, name_len, 1 TSRMLS_CC)) != IS_NULL ){
+					php_error(E_ERROR, "The model name you are loading is the name of a resource that is already being used: %s", name);
+					RETURN_ZVAL(getThis(), 1, 0);
+				}
+			}else{
+				name = model;
+				name_len = model_len;
+			}
+			//add new object to cii_controller
+			MAKE_STD_ZVAL(new_object);
+			object_init_ex(new_object, *ce);
+			zend_update_property(cii_controller_ce, CII, name, name_len, new_object TSRMLS_CC);
+			//add new model to cii_loader::_cii_model
+			zval *_cii_models = zend_read_property(cii_loader_ce, getThis(), ZEND_STRL("_cii_models"), 1 TSRMLS_CC);
+			zval *model_name;
+			MAKE_STD_ZVAL(model_name);
+			ZVAL_STRING(model_name, name, 1);
+			zend_hash_next_index_insert(Z_ARRVAL_P(_cii_models), &model_name, sizeof(zval *), NULL);
+			//call new object construct function
 			MAKE_STD_ZVAL(new_object_method_construct);
-			ZVAL_STRING(new_object_method_construct,"__construct",1);
+			ZVAL_STRING(new_object_method_construct, "__construct", 1);
 			call_user_function(NULL, &new_object, new_object_method_construct, *return_value_ptr, 0, NULL TSRMLS_CC);
 		}
-		RETURN_BOOL(retval);
 	}
+	RETURN_ZVAL(getThis(), 1, 0);
 }
 
-PHP_METHOD(cii_loader,helper){
+PHP_METHOD(cii_loader, helper){
 	zval *helper = NULL;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z" ,&helper) == FAILURE) {
@@ -305,6 +297,16 @@ PHP_MINIT_FUNCTION(cii_loader){
 	zend_class_entry ce;
 	INIT_CLASS_ENTRY(ce,"cii_loader",cii_loader_methods);
 	cii_loader_ce = zend_register_internal_class(&ce TSRMLS_CC);
-
+	/**
+	 * Nesting level of the output buffering mechanism
+	 *
+	 * @var	int
+	 */
 	zend_declare_property_null(cii_loader_ce,ZEND_STRL("_cii_ob_level"),ZEND_ACC_PROTECTED TSRMLS_CC);
+	/**
+	 * List of loaded models
+	 *
+	 * @var	array
+	 */
+	zend_declare_property_null(cii_loader_ce,ZEND_STRL("_cii_models"),ZEND_ACC_PROTECTED TSRMLS_CC);
 }
