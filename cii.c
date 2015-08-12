@@ -103,17 +103,13 @@ PHP_MINFO_FUNCTION(cii)
 ZEND_BEGIN_ARG_INFO_EX(cii_get_instance_arginfo, 0, 1, 0)
 ZEND_END_ARG_INFO()
 
-PHP_FUNCTION(get_instance)
+PHP_FUNCTION(cii_get_instance)
 {
-	zval *instance = zend_read_static_property(cii_controller_ce, ZEND_STRL("instance"), 1 TSRMLS_CC);
-	zval_ptr_dtor(return_value_ptr);
-	*return_value_ptr = instance;
-	Z_ADDREF_P(instance);
-	return;
+	GET_CII_CONTROLLER_INSTANCE_BY_REF();
 }
 
 const zend_function_entry cii_functions[] = {
-	PHP_FE(get_instance,cii_get_instance_arginfo)
+	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
 	CII_HELPER_FUNCTION
 	PHP_FE_END
 };

@@ -222,7 +222,7 @@ PHP_METHOD(cii_loader, model){
 		zend_class_entry **ce;
 		if(zend_hash_find(CG(class_table),model,model_len+1,(void**)&ce)==SUCCESS){
 			zval *new_object;
-			zval *CII = get_cii_controller_instance(TSRMLS_C);
+			zval *CII = GET_CII_CONTROLLER_INSTANCE();
 			zval *new_object_method_construct;
 
 			if(name){

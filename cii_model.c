@@ -18,7 +18,7 @@ PHP_METHOD(cii_model,__get)
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,"s",&key,&len)==FAILURE){
 		return;
 	}
-	zval *CII = get_cii_controller_instance(TSRMLS_C);
+	zval *CII = GET_CII_CONTROLLER_INSTANCE();
 	zval *property = zend_read_property(cii_controller_ce,CII,key,len,1 TSRMLS_CC);
 	if(Z_TYPE_P(property)==IS_NULL){
 		//RETURN_NULL();  return_value type already IS_NULL;
