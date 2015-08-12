@@ -34,6 +34,7 @@ PHP_METHOD(cii_controller,__construct){
 	MAKE_STD_ZVAL(load_method_construct);
 	ZVAL_STRING(load_method_construct,"__construct",1);
 	call_user_function(NULL, &load, load_method_construct, *return_value_ptr, 0, NULL TSRMLS_CC);
+	zval_ptr_dtor(&load_method_construct);
 	//
 	php_printf("Info: Controller Class Initialized\n");
 }

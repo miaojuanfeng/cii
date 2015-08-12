@@ -40,21 +40,18 @@ PHP_METHOD(cii_lang, load)
 		return;
 	}
 
-	if(!file_len||!idiom_len){
+	if(!file_len || !idiom_len){
 		return;
 	}else{
 		char *file;
 		uint len;
-		int retval = 0;
-		zval *this;
 		zval *language;
 		HashTable *old_active_symbol_table;
 		zval **lang;
 
 		len = spprintf(&file, 0, "%s%s%s%s%s", "/usr/local/httpd/htdocs/cii/language/", idiom, "/", langfile, ".php");
 
-		retval = (zend_hash_exists(&EG(included_files), file, len + 1));
-		if (retval) {
+		if (zend_hash_exists(&EG(included_files), file, len + 1)) {
 			RETURN_TRUE;
 		}
 
@@ -62,18 +59,17 @@ PHP_METHOD(cii_lang, load)
 		ALLOC_HASHTABLE(EG(active_symbol_table));
 		zend_hash_init(EG(active_symbol_table), 0, NULL, ZVAL_PTR_DTOR, 0);
 
-		retval = cii_loader_import(file, len, 0 TSRMLS_CC);
-
-		if(retval){
+		if(cii_loader_import(file, len, 0 TSRMLS_CC)){
 			if( zend_hash_find(EG(active_symbol_table), "lang", 5, (void**)&lang) == FAILURE ){
 				php_error(E_WARNING, "Language file contains no data: language/%s/%s.php", idiom, langfile);
 				return;
 			}
 
-			this = getThis();
-			language = zend_read_property(cii_lang_ce, this, ZEND_STRL("language"), 1 TSRMLS_CC);
+			language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
 			php_array_merge(Z_ARRVAL_P(language), Z_ARRVAL_P(*lang), 0 TSRMLS_CC);
 		}
+
+		efree(file);
 
 		zend_hash_destroy(EG(active_symbol_table));
 		FREE_HASHTABLE(EG(active_symbol_table));
