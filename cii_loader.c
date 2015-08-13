@@ -313,9 +313,14 @@ PHP_METHOD(cii_loader, helper){
 * public function database($config = NULL)
 */
 PHP_METHOD(cii_loader, database){
-	zval *db;
 	zend_class_entry **mysqli_ce;
-	zval **db_array;
+	zval *db_obj;
+	zval **db_arr;
+	zval **active_group;
+	HashPosition pos;
+	zval **config_arr;
+	zval **params[4];
+
 	if( zend_hash_find(EG(class_table), "mysqli", 7, (void**)&mysqli_ce) == FAILURE ){
 		zend_error(E_ERROR, "mysqli class has not initialized yet");
 	}
@@ -330,20 +335,72 @@ PHP_METHOD(cii_loader, database){
 	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
 	cii_loader_import(file, file_len, 0 TSRMLS_CC);
-	if( zend_hash_find(EG(active_symbol_table), "db", 3, (void**)&db_array) == FAILURE ){
+
+	if( zend_hash_find(EG(active_symbol_table), "active_group", 13, (void**)&active_group) == FAILURE ){
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		php_error(E_ERROR, "You have not specified a database connection group via $active_group in your config file: %s", file);
+	}
+
+	if( zend_hash_find(EG(active_symbol_table), "db", 3, (void**)&db_arr) == FAILURE ){
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 		php_error(E_ERROR, "No database connection settings were found in the database config file: %s", file);
 	}
 
+	if( zend_hash_find(Z_ARRVAL_P(*db_arr), Z_STRVAL_P(*active_group), Z_STRLEN_P(*active_group)+1, (void**)&config_arr) == FAILURE ){
+		char *active_group_error = zend_strndup(Z_STRVAL_P(*active_group), Z_STRLEN_P(*active_group));
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		php_error(E_ERROR, "You have specified an invalid database connection group (%s) in your config/database.php file: %s", active_group_error, file);
+	}
+
+	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(*config_arr), &pos);
+		zend_hash_has_more_elements_ex(Z_ARRVAL_P(*config_arr), &pos) == SUCCESS;
+	    zend_hash_move_forward_ex(Z_ARRVAL_P(*config_arr), &pos)){
+		char *key;
+		uint key_len;
+		ulong idx;
+		zval **value;
+
+		zend_hash_get_current_key_ex(Z_ARRVAL_P(*config_arr), &key, &key_len, &idx, 0, &pos);
+		zend_hash_get_current_data_ex(Z_ARRVAL_P(*config_arr), (void**)&value, &pos);
+
+		zend_str_tolower(key,key_len);
+		php_printf("key:%s\n",key);
+		php_printf("key_len:%d\n",key_len);
+		php_printf("value:%s\n",Z_STRVAL_P(*value));
+		if( key_len == 9 && !memcmp(key, "hostname", 9) ){
+			params[0] = *value;
+		}else if( key_len == 9 && !memcmp(key, "username", 9) ){
+			params[1] = *value;
+		}else if( key_len == 9 && !memcmp(key, "password", 9) ){
+			params[2] = *value;
+		}else if( key_len == 9 && !memcmp(key, "database", 9) ){
+			params[3] = *value;
+		}
+	}	
+
 	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 
+	int i=0;
+	for(i=0;i<4;i++){
+		php_printf("s-value:%s\n",Z_STRVAL_P(params[0]));
+	}
 
-	MAKE_STD_ZVAL(db);
-	object_init_ex(db, *mysqli_ce);
+	MAKE_STD_ZVAL(db_obj);
+	object_init_ex(db_obj, *mysqli_ce);
+	zend_update_property(cii_loader_ce, GET_CII_CONTROLLER_INSTANCE(), ZEND_STRL("db"), db_obj TSRMLS_CC);
+	zval_ptr_dtor(&db_obj);
 
-	zend_update_property(cii_loader_ce, GET_CII_CONTROLLER_INSTANCE(), ZEND_STRL("db"), db TSRMLS_CC);
+	zval *retval;
+	zval *func_name;
 
-	zval_ptr_dtor(&db);
+	MAKE_STD_ZVAL(func_name);
+	ZVAL_STRING(func_name, "connect", 1);
+	if( call_user_function(NULL, &db_obj, func_name, *return_value_ptr, 4, *params TSRMLS_CC) == FAILURE ){
+		php_error(E_ERROR, "Unable call mysqli construct function");
+	}	
+	//if( call_user_function_ex(NULL, &db_obj, func_name, &retval, 4, params, 0, NULL TSRMLS_CC) == FAILURE ){
+	//	php_error(E_ERROR, "Unable call mysqli construct function");
+	//}
 }
 
 zend_function_entry cii_loader_methods[] = {
