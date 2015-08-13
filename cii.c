@@ -31,7 +31,6 @@
 #include "cii_loader.c"
 #include "cii_helper.c"
 #include "cii_lang.c"
-#include "cii_mysqli.c"
 
 
 /* If you declare any globals in php_cii.h uncomment this:

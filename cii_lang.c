@@ -62,7 +62,6 @@ PHP_METHOD(cii_lang, load)
 		if(cii_loader_import(file, len, 0 TSRMLS_CC)){
 			if( zend_hash_find(EG(active_symbol_table), "lang", 5, (void**)&lang) == FAILURE ){
 				php_error(E_WARNING, "Language file contains no data: language/%s/%s.php", idiom, langfile);
-				return;
 			}
 
 			language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);

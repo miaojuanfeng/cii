@@ -21,14 +21,25 @@ ZEND_END_ARG_INFO()*/
 		EG(active_op_array)		 = __old_op_array; \
 	}
 
+#define CII_ALLOC_ACTIVE_SYMBOL_TABLE() \
+	HashTable *old_active_symbol_table; \
+	old_active_symbol_table = EG(active_symbol_table); \
+	ALLOC_HASHTABLE(EG(active_symbol_table)); \
+	zend_hash_init(EG(active_symbol_table), 0, NULL, ZVAL_PTR_DTOR, 0)
+
+#define CII_DESTROY_ACTIVE_SYMBOL_TABLE() \
+	zend_hash_destroy(EG(active_symbol_table)); \
+	FREE_HASHTABLE(EG(active_symbol_table)); \
+	EG(active_symbol_table) = old_active_symbol_table	
+
+
 ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 	zend_file_handle file_handle;
 	zend_op_array 	*op_array;
 	char realpath[MAXPATHLEN];
 
 	if (!VCWD_REALPATH(path, realpath)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to load the requested file: %s", path);
-		return 0;
+		php_error(E_WARNING, "Unable to load the requested file: %s", path);
 	}
 
 	file_handle.filename = path;
@@ -101,7 +112,6 @@ PHP_METHOD(cii_loader,view){
 	HashTable *data = NULL;
 	uint is_return = 0;
 	zval **value;
-	HashTable *old_active_symbol_table;
 	char *file;
 	uint file_len;
 
@@ -123,9 +133,7 @@ PHP_METHOD(cii_loader,view){
 	/*if (EG(active_symbol_table)) {
 		zend_rebuild_symbol_table(TSRMLS_C);
 	}*/
-	old_active_symbol_table = EG(active_symbol_table);
-	ALLOC_HASHTABLE(EG(active_symbol_table));
-	zend_hash_init(EG(active_symbol_table), 0, NULL, ZVAL_PTR_DTOR, 0);
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
 	if(data){
 		char *key;
@@ -163,7 +171,7 @@ PHP_METHOD(cii_loader,view){
 			php_output_get_contents(return_value TSRMLS_CC);
 			php_output_discard(TSRMLS_C);
 		}else{
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create buffer");
+			php_error(E_WARNING, "failed to create buffer");
 		}
 	}else{
 		cii_loader_import(file, file_len, 0 TSRMLS_CC);
@@ -171,9 +179,7 @@ PHP_METHOD(cii_loader,view){
 
 	efree(file);
 
-	zend_hash_destroy(EG(active_symbol_table));
-	FREE_HASHTABLE(EG(active_symbol_table));
-	EG(active_symbol_table) = old_active_symbol_table;
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 
 	if(!is_return){
 		RETURN_ZVAL(getThis(), 1, 0);
@@ -213,7 +219,11 @@ PHP_METHOD(cii_loader, model){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
 	cii_loader_import(file, file_len, 0 TSRMLS_CC);
+
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 
 	//add new object property to cii_controller class
 	zend_class_entry **ce;
@@ -225,7 +235,6 @@ PHP_METHOD(cii_loader, model){
 		if(name){
 			if( Z_TYPE_P(zend_read_property(cii_controller_ce, CII, name, name_len, 1 TSRMLS_CC)) != IS_NULL ){
 				php_error(E_ERROR, "The model name you are loading is the name of a resource that is already being used: %s", name);
-				RETURN_ZVAL(getThis(), 1, 0);
 			}
 		}else{
 			name = model;
@@ -252,7 +261,12 @@ PHP_METHOD(cii_loader, model){
 	efree(file);
 	RETURN_ZVAL(getThis(), 1, 0);
 }
-
+/**
+* Helper Loader
+*
+* @param	string|string[]	$helpers	Helper name(s)
+* @return	object
+*/
 PHP_METHOD(cii_loader, helper){
 	zval *helper = NULL;
 	char *file;
@@ -272,6 +286,8 @@ PHP_METHOD(cii_loader, helper){
 		convert_to_array(helper);
 	}
 
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
 	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(helper), &pos);
 		zend_hash_get_current_data_ex(Z_ARRVAL_P(helper), (void**)&data, &pos) == SUCCESS;
 		zend_hash_move_forward_ex(Z_ARRVAL_P(helper), &pos) ){
@@ -284,14 +300,58 @@ PHP_METHOD(cii_loader, helper){
 			efree(file);
 	}
 
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+
 	RETURN_ZVAL(getThis(), 1, 0);
+}
+/**
+* Database Loader
+*
+* @param	Array	$config		Database configuration options
+* @return	object
+*
+* public function database($config = NULL)
+*/
+PHP_METHOD(cii_loader, database){
+	zval *db;
+	zend_class_entry **mysqli_ce;
+	zval **db_array;
+	if( zend_hash_find(EG(class_table), "mysqli", 7, (void**)&mysqli_ce) == FAILURE ){
+		zend_error(E_ERROR, "mysqli class has not initialized yet");
+	}
+
+	char *file = "/usr/local/httpd/htdocs/cii/configs/database.php";
+	uint file_len = strlen(file);
+
+	if(zend_hash_exists(&EG(included_files), file, file_len + 1)){
+		return;
+	}
+
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
+	cii_loader_import(file, file_len, 0 TSRMLS_CC);
+	if( zend_hash_find(EG(active_symbol_table), "db", 3, (void**)&db_array) == FAILURE ){
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		php_error(E_ERROR, "No database connection settings were found in the database config file: %s", file);
+	}
+
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+
+
+	MAKE_STD_ZVAL(db);
+	object_init_ex(db, *mysqli_ce);
+
+	zend_update_property(cii_loader_ce, GET_CII_CONTROLLER_INSTANCE(), ZEND_STRL("db"), db TSRMLS_CC);
+
+	zval_ptr_dtor(&db);
 }
 
 zend_function_entry cii_loader_methods[] = {
-	PHP_ME(cii_loader,__construct,NULL,ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-	PHP_ME(cii_loader,view,NULL,ZEND_ACC_PUBLIC)
-	PHP_ME(cii_loader,model,NULL,ZEND_ACC_PUBLIC)
-	PHP_ME(cii_loader,helper,NULL,ZEND_ACC_PUBLIC)
+	PHP_ME(cii_loader, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(cii_loader, view, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_loader, model, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_loader, helper, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_loader, database, NULL, ZEND_ACC_PUBLIC)
 	ZEND_FE_END
 };
 

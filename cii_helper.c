@@ -70,7 +70,7 @@ PHP_FUNCTION(cii_element){
 			}
 			break;
 		default:
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "The first argument should be either a string or an integer");	
+			php_error(E_WARNING, "The first argument should be either a string or an integer");	
 	}
 	if(dft){
 		RETVAL_ZVAL(dft, 1, 0);
@@ -136,7 +136,7 @@ PHP_FUNCTION(cii_elements){
 						key_len = 1;
 						break;
 					default:
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "The first argument should be an array or a string or an integer");
+						php_error(E_WARNING, "The first argument should be an array or a string or an integer");
 				}
 			}
 			if(key_len){
