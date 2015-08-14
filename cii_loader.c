@@ -351,10 +351,9 @@ PHP_METHOD(cii_loader, database){
 		php_error(E_ERROR, "You have specified an invalid database connection group (%s) in your config/database.php file: %s", active_group_error, file);
 	}
 
-	zval *hostname;
-	zval *username;
-	zval *password;
-	zval *database;
+	zval *hostname, *username, *password, *database;
+	MAKE_STD_ZVAL(hostname); MAKE_STD_ZVAL(username); MAKE_STD_ZVAL(password); MAKE_STD_ZVAL(database);
+	ZVAL_NULL(hostname); ZVAL_NULL(username); ZVAL_NULL(password); ZVAL_NULL(database);
 
 	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(*config_arr), &pos);
 		zend_hash_has_more_elements_ex(Z_ARRVAL_P(*config_arr), &pos) == SUCCESS;
@@ -369,12 +368,16 @@ PHP_METHOD(cii_loader, database){
 
 		zend_str_tolower(key,key_len);
 		if( key_len == 9 && !memcmp(key, "hostname", 9) ){
+			efree(hostname);
 			hostname = *value;
 		}else if( key_len == 9 && !memcmp(key, "username", 9) ){
+			efree(username);
 			username = *value;
 		}else if( key_len == 9 && !memcmp(key, "password", 9) ){
+			efree(password);
 			password = *value;
 		}else if( key_len == 9 && !memcmp(key, "database", 9) ){
+			efree(database);
 			database = *value;
 		}
 	}
@@ -396,7 +399,7 @@ PHP_METHOD(cii_loader, database){
 	ZVAL_STRING(func_name, "connect", 1);
 	if( call_user_function_ex(NULL, &db_obj, func_name, &retval, 4, params, 0, NULL TSRMLS_CC) == FAILURE ){
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-		php_error(E_ERROR, "Call mysql::connect function failed");
+		php_error(E_ERROR, "Call mysqli::connect function failed");
 	}
 	zval_ptr_dtor(&func_name);
 	zval_ptr_dtor(&retval);
