@@ -396,7 +396,7 @@ PHP_METHOD(cii_loader, database){
 	ZVAL_STRING(func_name, "connect", 1);
 	if( call_user_function_ex(NULL, &db_obj, func_name, &retval, 4, params, 0, NULL TSRMLS_CC) == FAILURE ){
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-		php_error(E_ERROR, "Unable call mysqli construct function");
+		php_error(E_ERROR, "Call mysql::connect function failed");
 	}
 	zval_ptr_dtor(&func_name);
 	zval_ptr_dtor(&retval);
