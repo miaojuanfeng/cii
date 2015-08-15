@@ -108,8 +108,19 @@ PHP_FUNCTION(cii_get_instance)
 	GET_CII_CONTROLLER_INSTANCE_BY_REF();
 }
 
+PHP_FUNCTION(cii_test)
+{
+	zval **carrier = &PG(http_globals)[TRACK_VARS_SERVER];
+	HashPosition p = Z_ARRVAL_PP(carrier)->pListHead;
+	while(p){
+    	php_printf("server:%s\n",p->arKey);
+    	p = p->pListNext;
+    }	
+}
+
 const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
+	PHP_FE(cii_test, NULL)
 	CII_HELPER_FUNCTION
 	PHP_FE_END
 };
