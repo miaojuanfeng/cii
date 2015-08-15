@@ -111,11 +111,43 @@ PHP_FUNCTION(cii_get_instance)
 PHP_FUNCTION(cii_test)
 {
 	zval **carrier = &PG(http_globals)[TRACK_VARS_SERVER];
-	HashPosition p = Z_ARRVAL_PP(carrier)->pListHead;
+	/*HashPosition p = Z_ARRVAL_PP(carrier)->pListHead;
 	while(p){
     	php_printf("server:%s\n",p->arKey);
     	p = p->pListNext;
-    }	
+    }*/
+    zval **query;
+    if( zend_hash_find(Z_ARRVAL_PP(carrier), "QUERY_STRING", 13, (void**)&query) == FAILURE ){
+    	zval *temp;
+    	MAKE_STD_ZVAL(temp);
+    	ZVAL_STRING(temp,"/home/index/123",1);
+    	query = &temp;
+    	//return;
+    }
+    php_printf("QUERY_STRING:%s\n",Z_STRVAL_PP(query));
+    zval *cut;
+    MAKE_STD_ZVAL(cut);
+    ZVAL_STRING(cut,"/",1);
+    zval **params[2];
+    params[0] = &cut;
+    params[1] = query;
+    zval *func_name;
+    MAKE_STD_ZVAL(func_name);
+    ZVAL_STRING(func_name,"explode",1);
+    zval *retval;
+    if( call_user_function_ex(EG(function_table), NULL, func_name, &retval, 2, params, 0, NULL TSRMLS_CC) == FAILURE ){
+		php_error(E_ERROR, "Call function failed");
+	}
+	php_printf("%d\n",Z_TYPE_P(retval));
+	HashPosition p = Z_ARRVAL_P(retval)->pListHead;
+	while(p){
+    	php_printf("explode:%ld\n",p->h);
+    	p = p->pListNext;
+    }
+    zval_ptr_dtor(query);
+    zval_ptr_dtor(&retval);
+    zval_ptr_dtor(&func_name);
+    zval_ptr_dtor(&cut);
 }
 
 const zend_function_entry cii_functions[] = {
