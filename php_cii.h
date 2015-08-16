@@ -60,6 +60,19 @@ ZEND_END_MODULE_GLOBALS(cii)
 #define CII_G(v) (cii_globals.v)
 #endif
 
+#define CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value) \
+  do{ \
+    if(PZVAL_IS_REF(*value)){ \
+      zval *temp; \
+      MAKE_STD_ZVAL(temp); \
+      ZVAL_COPY_VALUE(temp,*value); \
+      zval_copy_ctor(temp); \
+      value = &temp; \
+    }else{ \
+      Z_ADDREF_P(*value); \
+    } \
+  }while(0)
+  
 #define CII_CALL_USER_FUNCTION_EX(function_table, object_ptr, function_name, retval_ptr, param_count, params) \
   do{ \
     zval *func_name; \

@@ -39,19 +39,6 @@ ZEND_DECLARE_MODULE_GLOBALS(cii)
 /* True global resources - no need for thread safety here */
 static int le_cii;
 
-#define CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value) \
-	do{ \
-		if(PZVAL_IS_REF(*value)){ \
-			zval *temp; \
-			MAKE_STD_ZVAL(temp); \
-			ZVAL_COPY_VALUE(temp,*value); \
-			zval_copy_ctor(temp); \
-			value = &temp; \
-		}else{ \
-			Z_ADDREF_P(*value); \
-		} \
-	}while(0)
-
 /* {{{ PHP_INI
  */
 /* Remove comments and fill if you need to have entries in php.ini

@@ -21,13 +21,13 @@ ZEND_END_ARG_INFO ()
 */
 PHP_METHOD(cii_controller,__construct){
 	//init instance
-	zend_update_static_property(cii_controller_ce,ZEND_STRL("instance"),getThis() TSRMLS_CC);
+	zend_update_static_property(cii_controller_ce, ZEND_STRL("instance"), getThis() TSRMLS_CC);
 	//load object
 	zval *load;
 	extern zend_class_entry *cii_loader_ce;
 	MAKE_STD_ZVAL(load);
-	object_init_ex(load,cii_loader_ce);
-	zend_update_property(cii_controller_ce,getThis(),ZEND_STRL("load"),load TSRMLS_CC);
+	object_init_ex(load, cii_loader_ce);
+	zend_update_property(cii_controller_ce, getThis(), ZEND_STRL("load"), load TSRMLS_CC);
 	zval_ptr_dtor(&load);
 
 	zval *load_method_construct;

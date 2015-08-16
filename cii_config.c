@@ -77,18 +77,18 @@ PHP_METHOD(cii_config, set_item)
 	char *item;
 	uint item_len;
 	zval *value;
+	zval **value_ptr;
 	zval *config;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &item, &item_len, &value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-php_printf("%s\n",item);	
-php_printf("%s\n",Z_STRVAL_P(value));
+
 	config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
-php_printf("%d\n",Z_TYPE_P(config));	
-	if( zend_hash_update(Z_ARRVAL_P(config), item, item_len, &value, sizeof(zval *), NULL) == FAILURE ){
-		php_printf("%s\n",Z_STRVAL_P(value));
-	}
+
+	value_ptr = &value;
+	CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value_ptr);	
+	zend_hash_update(Z_ARRVAL_P(config), item, item_len+1, value_ptr, sizeof(zval *), NULL);
 }
 
 zend_function_entry cii_config_methods[] = {
