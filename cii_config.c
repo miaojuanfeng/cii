@@ -20,9 +20,81 @@ PHP_METHOD(cii_config, __construct)
 
 	php_printf("Info: Config Class Initialized\n");
 }
+/**
+* Fetch a config file item
+*
+* @param	string	$item	Config item name
+* @param	string	$index	Index name
+* @return	string|null	The configuration item or NULL if the item doesn't exist
+*
+* public function item($item, $index = '')
+*/
+//notice: if item or index is long, will return null.
+PHP_METHOD(cii_config, item)
+{
+	char *item, *index = NULL;
+	uint item_len, index_len;
+	zval **value;
+	zval *config;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &item, &item_len, &index, &index_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
+
+	if(!index){
+		if( zend_hash_find(Z_ARRVAL_P(config), item, item_len+1, (void**)&value) == FAILURE ){
+			RETURN_NULL();
+		}else{
+			RETURN_ZVAL(*value, 1, 0);
+		}
+	}
+	
+	if( zend_hash_find(Z_ARRVAL_P(config), index, index_len+1, (void**)&value) == FAILURE ){
+		RETURN_NULL();
+	}else{
+		zval **item_value;
+		if( zend_hash_find(Z_ARRVAL_PP(value), item, item_len+1, (void**)&item_value) == FAILURE ){
+			RETURN_NULL();
+		}else{
+			RETURN_ZVAL(*item_value, 1, 0);
+		}	
+	}
+}
+/**
+* Set a config file item
+*
+* @param	string	$item	Config item key
+* @param	string	$value	Config item value
+* @return	void
+*
+* public function set_item($item, $value)
+*/
+//notice:what about item is long?
+PHP_METHOD(cii_config, set_item)
+{
+	char *item;
+	uint item_len;
+	zval *value;
+	zval *config;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &item, &item_len, &value) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+php_printf("%s\n",item);	
+php_printf("%s\n",Z_STRVAL_P(value));
+	config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
+php_printf("%d\n",Z_TYPE_P(config));	
+	if( zend_hash_update(Z_ARRVAL_P(config), item, item_len, &value, sizeof(zval *), NULL) == FAILURE ){
+		php_printf("%s\n",Z_STRVAL_P(value));
+	}
+}
 
 zend_function_entry cii_config_methods[] = {
 	PHP_ME(cii_config, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(cii_config, item, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_config, set_item, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
