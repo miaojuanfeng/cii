@@ -6,7 +6,7 @@ ZEND_BEGIN_ARG_INFO_EX(cii_controller_get_instance_arginfo, 0, 1, 0)
 ZEND_END_ARG_INFO ()
 
 #define GET_CII_CONTROLLER_INSTANCE() \
-	zend_read_static_property(cii_controller_ce,ZEND_STRL("instance"),1 TSRMLS_CC)
+	zend_read_static_property(cii_controller_ce, ZEND_STRL("instance"), 1 TSRMLS_CC)
 
 #define GET_CII_CONTROLLER_INSTANCE_BY_REF() \
 	zval_ptr_dtor(return_value_ptr); \

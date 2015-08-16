@@ -33,9 +33,7 @@
 #include "cii_lang.c"
 
 
-/* If you declare any globals in php_cii.h uncomment this:
 ZEND_DECLARE_MODULE_GLOBALS(cii)
-*/
 
 /* True global resources - no need for thread safety here */
 static int le_cii;
@@ -50,17 +48,20 @@ PHP_INI_END()
 */
 /* }}} */
 
-/* {{{ php_cii_init_globals
- */
-/* Uncomment this function if you have INI entries
-static void php_cii_init_globals(zend_cii_globals *cii_globals)
+static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 {
-	cii_globals->global_value = 0;
-	cii_globals->global_string = NULL;
-}*/
+	MAKE_STD_ZVAL(cii_globals->config);
+	array_init(cii_globals->config);
+}
+
+static void php_cii_globals_dtor(zend_cii_globals *cii_globals)
+{
+	zval_ptr_dtor(&cii_globals->config);
+}
 
 PHP_MINIT_FUNCTION(cii)
 {
+	ZEND_INIT_MODULE_GLOBALS(cii, php_cii_globals_ctor, php_cii_globals_dtor);
 	/* If you have INI entries, uncomment these lines 
 	REGISTER_INI_ENTRIES();
 	*/
@@ -86,6 +87,9 @@ PHP_RINIT_FUNCTION(cii)
 
 PHP_RSHUTDOWN_FUNCTION(cii)
 {
+#ifndef ZTS
+	php_cii_globals_dtor(&cii_globals);
+#endif	
 	return SUCCESS;
 }
 
@@ -103,9 +107,50 @@ PHP_MINFO_FUNCTION(cii)
 ZEND_BEGIN_ARG_INFO_EX(cii_get_instance_arginfo, 0, 1, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(cii_get_config_arginfo, 0, 1, 0)
+	ZEND_ARG_ARRAY_INFO(0, replace, 1)
+ZEND_END_ARG_INFO()
+
 PHP_FUNCTION(cii_get_instance)
 {
 	GET_CII_CONTROLLER_INSTANCE_BY_REF();
+}
+
+PHP_FUNCTION(cii_get_config)
+{
+	HashTable *replace;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|H!", &replace) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if(!(Z_ARRVAL_P(CII_G(config))->nNumOfElements)){
+		zval **cfg;
+		char *file;
+		uint file_len = spprintf(&file, 0, "%s", "/usr/local/nginx/html/cii/configs/config.php");
+		HashPosition pos;
+
+		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
+		cii_loader_import(file, file_len, 0 TSRMLS_CC);
+
+		if( zend_hash_find(EG(active_symbol_table), "config", 7, (void**)&cfg) == FAILURE || 
+			Z_TYPE_PP(cfg) != IS_ARRAY ){
+			php_error(E_WARNING, "Your config file does not appear to be formatted correctly.");	
+		}
+
+		*CII_G(config) = **cfg;
+		zval_copy_ctor(CII_G(config));	
+
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		efree(file);
+	}
+
+	
+
+	zval_ptr_dtor(return_value_ptr);
+	(*return_value_ptr) = CII_G(config);
+	Z_ADDREF_P(*return_value_ptr);
 }
 
 PHP_FUNCTION(cii_test)
@@ -152,6 +197,7 @@ PHP_FUNCTION(cii_test)
 
 const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
+	PHP_FE(cii_get_config, cii_get_config_arginfo)
 	PHP_FE(cii_test, NULL)
 	CII_HELPER_FUNCTION
 	PHP_FE_END

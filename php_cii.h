@@ -38,15 +38,11 @@ extern zend_module_entry cii_module_entry;
 #include "TSRM.h"
 #endif
 
-/* 
-  	Declare any global variables you may need between the BEGIN
-	and END macros here:     
 
 ZEND_BEGIN_MODULE_GLOBALS(cii)
-	long  global_value;
-	char *global_string;
+	zval*  config;
 ZEND_END_MODULE_GLOBALS(cii)
-*/
+
 
 /* In every utility function you add that needs to use variables 
    in php_cii_globals, call TSRMLS_FETCH(); after declaring other 
