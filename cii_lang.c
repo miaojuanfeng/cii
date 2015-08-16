@@ -10,8 +10,7 @@ zend_class_entry *cii_lang_ce;
 */
 PHP_METHOD(cii_lang, __construct)
 {
-	zval *this = getThis();
-	zval *language = zend_read_property(cii_lang_ce, this, ZEND_STRL("language"), 1 TSRMLS_CC);
+	zval *language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
 	if(Z_TYPE_P(language)!=IS_ARRAY){
 		convert_to_array(language);
 	}

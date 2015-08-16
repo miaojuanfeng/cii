@@ -60,6 +60,17 @@ ZEND_END_MODULE_GLOBALS(cii)
 #define CII_G(v) (cii_globals.v)
 #endif
 
+#define CII_CALL_USER_FUNCTION_EX(function_table, object_ptr, function_name, retval_ptr, param_count, params) \
+  do{ \
+    zval *func_name; \
+    MAKE_STD_ZVAL(func_name); \
+    ZVAL_STRING(func_name, function_name, 1); \
+    if( call_user_function_ex(function_table, object_ptr, func_name, retval_ptr, param_count, params, 0, NULL TSRMLS_CC) == FAILURE ){ \
+      php_error(E_ERROR, "Call function failed: %s", function_name); \
+    } \
+    zval_ptr_dtor(&func_name); \
+  }while(0)
+
 #endif	/* PHP_CII_H */
 
 

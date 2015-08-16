@@ -91,16 +91,15 @@ ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 }
 
 PHP_METHOD(cii_loader,__construct){
-	zval *this = getThis();
 	//init cii_loader::_cii_ob_level
 	zval *ob_level;
 	MAKE_STD_ZVAL(ob_level);
 	ZVAL_LONG(ob_level, php_output_get_level(TSRMLS_C));
-	zend_update_property(cii_loader_ce, this, ZEND_STRL("_cii_ob_level"), ob_level TSRMLS_CC);
+	zend_update_property(cii_loader_ce, getThis(), ZEND_STRL("_cii_ob_level"), ob_level TSRMLS_CC);
 	zval_ptr_dtor(&ob_level);
 	//init cii_loader::_cii_models
-	zval *_cii_models = zend_read_property(cii_loader_ce, this, ZEND_STRL("_cii_models"), 1 TSRMLS_CC);
-	if(Z_TYPE_P(_cii_models)!=IS_ARRAY){
+	zval *_cii_models = zend_read_property(cii_loader_ce, getThis(), ZEND_STRL("_cii_models"), 1 TSRMLS_CC);
+	if(Z_TYPE_P(_cii_models) != IS_ARRAY){
 		convert_to_array(_cii_models);
 	}
 	php_printf("Info: Loader Class Initialized\n");
@@ -152,15 +151,7 @@ PHP_METHOD(cii_loader,view){
 			if(zend_hash_get_current_data_ex(data, (void**)&value, &pos) == FAILURE){
 				continue;
 			}
-			if(PZVAL_IS_REF(*value)){
-				zval *temp;
-				MAKE_STD_ZVAL(temp);
-				ZVAL_COPY_VALUE(temp,*value);
-				zval_copy_ctor(temp);
-				value = &temp;
-			}else{
-				Z_ADDREF_P(*value);
-			}
+			CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
 			zend_hash_update(EG(active_symbol_table), key, key_len, value, sizeof(zval *), NULL);
 		}
 	}
@@ -418,18 +409,18 @@ zend_function_entry cii_loader_methods[] = {
 
 PHP_MINIT_FUNCTION(cii_loader){
 	zend_class_entry ce;
-	INIT_CLASS_ENTRY(ce,"cii_loader",cii_loader_methods);
+	INIT_CLASS_ENTRY(ce, "cii_loader", cii_loader_methods);
 	cii_loader_ce = zend_register_internal_class(&ce TSRMLS_CC);
 	/**
 	 * Nesting level of the output buffering mechanism
 	 *
 	 * @var	int
 	 */
-	zend_declare_property_null(cii_loader_ce,ZEND_STRL("_cii_ob_level"),ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(cii_loader_ce, ZEND_STRL("_cii_ob_level"), ZEND_ACC_PROTECTED TSRMLS_CC);
 	/**
 	 * List of loaded models
 	 *
 	 * @var	array
 	 */
-	zend_declare_property_null(cii_loader_ce,ZEND_STRL("_cii_models"),ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(cii_loader_ce, ZEND_STRL("_cii_models"), ZEND_ACC_PROTECTED TSRMLS_CC);
 }

@@ -31,12 +31,26 @@
 #include "cii_loader.c"
 #include "cii_helper.c"
 #include "cii_lang.c"
+#include "cii_config.c"
 
 
 ZEND_DECLARE_MODULE_GLOBALS(cii)
 
 /* True global resources - no need for thread safety here */
 static int le_cii;
+
+#define CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value) \
+	do{ \
+		if(PZVAL_IS_REF(*value)){ \
+			zval *temp; \
+			MAKE_STD_ZVAL(temp); \
+			ZVAL_COPY_VALUE(temp,*value); \
+			zval_copy_ctor(temp); \
+			value = &temp; \
+		}else{ \
+			Z_ADDREF_P(*value); \
+		} \
+	}while(0)
 
 /* {{{ PHP_INI
  */
@@ -69,6 +83,7 @@ PHP_MINIT_FUNCTION(cii)
 	ZEND_MINIT(cii_model)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_loader)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_lang)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_config)(INIT_FUNC_ARGS_PASSTHRU);
 	return SUCCESS;
 }
 
@@ -115,10 +130,20 @@ PHP_FUNCTION(cii_get_instance)
 {
 	GET_CII_CONTROLLER_INSTANCE_BY_REF();
 }
-
+/**
+* Loads the main config.php file
+*
+* This function lets us grab the config file even if the Config class
+* hasn't been instantiated yet
+*
+* @param	array
+* @return	array
+*
+* function &get_config(Array $replace = array())
+*/
 PHP_FUNCTION(cii_get_config)
 {
-	HashTable *replace;
+	HashTable *replace = NULL;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|H!", &replace) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -128,7 +153,6 @@ PHP_FUNCTION(cii_get_config)
 		zval **cfg;
 		char *file;
 		uint file_len = spprintf(&file, 0, "%s", "/usr/local/nginx/html/cii/configs/config.php");
-		HashPosition pos;
 
 		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
@@ -146,7 +170,33 @@ PHP_FUNCTION(cii_get_config)
 		efree(file);
 	}
 
-	
+	if(replace){
+		HashPosition pos;
+		char *key;
+		uint key_len;
+		ulong idx;
+		zval **value;
+		uint key_type;
+		for(zend_hash_internal_pointer_reset_ex(replace, &pos);
+		    zend_hash_has_more_elements_ex(replace, &pos) == SUCCESS;
+		    zend_hash_move_forward_ex(replace, &pos)){
+			if( (key_type = zend_hash_get_current_key_ex(replace, &key, &key_len, &idx, 0, &pos)) == HASH_KEY_NON_EXISTENT){
+				continue;
+			}
+			if(zend_hash_get_current_data_ex(replace, (void**)&value, &pos) == FAILURE){
+				continue;
+			}
+			CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
+			switch(key_type){
+				case HASH_KEY_IS_STRING:
+					zend_hash_update(Z_ARRVAL_P(CII_G(config)), key, key_len, value, sizeof(zval *), NULL);
+					break;
+				case HASH_KEY_IS_LONG:
+					zend_hash_index_update(Z_ARRVAL_P(CII_G(config)), idx, value, sizeof(zval *), NULL);
+					break;
+			}
+		}   	
+	}
 
 	zval_ptr_dtor(return_value_ptr);
 	(*return_value_ptr) = CII_G(config);
