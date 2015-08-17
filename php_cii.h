@@ -72,7 +72,7 @@ ZEND_END_MODULE_GLOBALS(cii)
       Z_ADDREF_P(*value); \
     } \
   }while(0)
-  
+
 #define CII_CALL_USER_FUNCTION_EX(function_table, object_ptr, function_name, retval_ptr, param_count, params) \
   do{ \
     zval *func_name; \

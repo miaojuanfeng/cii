@@ -141,15 +141,7 @@ PHP_FUNCTION(cii_elements){
 			}
 			if(key_len){
 				if( zend_hash_find(array, key, key_len, (void**)&value) == SUCCESS ){
-					zval *temp;
-					if(PZVAL_IS_REF(*value)){
-						MAKE_STD_ZVAL(temp);
-						ZVAL_COPY_VALUE(temp,*value);
-						zval_copy_ctor(temp);
-						value = &temp;
-					}else{
-						Z_ADDREF_P(*value);
-					}
+					CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
 					zend_hash_update(Z_ARRVAL_P(return_value), key, key_len, value, sizeof(zval *), NULL);
 				}else{
 					Z_ADDREF_P(dft);
@@ -157,15 +149,7 @@ PHP_FUNCTION(cii_elements){
 				}
 			}else{
 				if( zend_hash_index_find(array, idx, (void**)&value) == SUCCESS ){
-					zval *temp;
-					if(PZVAL_IS_REF(*value)){
-						MAKE_STD_ZVAL(temp);
-						ZVAL_COPY_VALUE(temp,*value);
-						zval_copy_ctor(temp);
-						value = &temp;
-					}else{
-						Z_ADDREF_P(*value);
-					}
+					CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
 					zend_hash_index_update(Z_ARRVAL_P(return_value), idx, value, sizeof(zval *), NULL);
 				}else{
 					Z_ADDREF_P(dft);
