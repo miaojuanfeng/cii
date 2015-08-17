@@ -1,6 +1,7 @@
 #include "cii_controller.h"
 
 zend_class_entry *cii_controller_ce;
+extern zend_class_entry *cii_loader_ce;
 
 ZEND_BEGIN_ARG_INFO_EX(cii_controller_get_instance_arginfo, 0, 1, 0)
 ZEND_END_ARG_INFO ()
@@ -19,22 +20,19 @@ ZEND_END_ARG_INFO ()
 *
 * public function __construct()
 */
-PHP_METHOD(cii_controller,__construct){
+PHP_METHOD(cii_controller, __construct){
 	//init instance
 	zend_update_static_property(cii_controller_ce, ZEND_STRL("instance"), getThis() TSRMLS_CC);
 	//load object
 	zval *load;
-	extern zend_class_entry *cii_loader_ce;
 	MAKE_STD_ZVAL(load);
 	object_init_ex(load, cii_loader_ce);
 	zend_update_property(cii_controller_ce, getThis(), ZEND_STRL("load"), load TSRMLS_CC);
 	zval_ptr_dtor(&load);
-
-	zval *load_method_construct;
-	MAKE_STD_ZVAL(load_method_construct);
-	ZVAL_STRING(load_method_construct, "__construct", 1);
-	call_user_function(NULL, &load, load_method_construct, *return_value_ptr, 0, NULL TSRMLS_CC);
-	zval_ptr_dtor(&load_method_construct);
+	//call load construct
+	zval *retval;
+	CII_CALL_USER_FUNCTION_EX(NULL, &load, "__construct", &retval, 0, NULL);
+	zval_ptr_dtor(&retval);
 	//
 	php_printf("Info: Controller Class Initialized\n");
 }

@@ -60,29 +60,40 @@ ZEND_END_MODULE_GLOBALS(cii)
 #define CII_G(v) (cii_globals.v)
 #endif
 
+#define CII_ALLOC_ACTIVE_SYMBOL_TABLE() \
+    HashTable *old_active_symbol_table; \
+    old_active_symbol_table = EG(active_symbol_table); \
+    ALLOC_HASHTABLE(EG(active_symbol_table)); \
+    zend_hash_init(EG(active_symbol_table), 0, NULL, ZVAL_PTR_DTOR, 0)
+
+#define CII_DESTROY_ACTIVE_SYMBOL_TABLE() \
+    zend_hash_destroy(EG(active_symbol_table)); \
+    FREE_HASHTABLE(EG(active_symbol_table)); \
+    EG(active_symbol_table) = old_active_symbol_table 
+
 #define CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value) \
-  do{ \
-    if(PZVAL_IS_REF(*value)){ \
-      zval *temp; \
-      MAKE_STD_ZVAL(temp); \
-      ZVAL_COPY_VALUE(temp,*value); \
-      zval_copy_ctor(temp); \
-      value = &temp; \
-    }else{ \
-      Z_ADDREF_P(*value); \
-    } \
-  }while(0)
+    do{ \
+        if(PZVAL_IS_REF(*value)){ \
+            zval *temp; \
+            MAKE_STD_ZVAL(temp); \
+            ZVAL_COPY_VALUE(temp,*value); \
+            zval_copy_ctor(temp); \
+            value = &temp; \
+        }else{ \
+            Z_ADDREF_P(*value); \
+        } \
+    }while(0)
 
 #define CII_CALL_USER_FUNCTION_EX(function_table, object_ptr, function_name, retval_ptr, param_count, params) \
-  do{ \
-    zval *func_name; \
-    MAKE_STD_ZVAL(func_name); \
-    ZVAL_STRING(func_name, function_name, 1); \
-    if( call_user_function_ex(function_table, object_ptr, func_name, retval_ptr, param_count, params, 0, NULL TSRMLS_CC) == FAILURE ){ \
-      php_error(E_ERROR, "Call function failed: %s", function_name); \
-    } \
-    zval_ptr_dtor(&func_name); \
-  }while(0)
+    do{ \
+        zval *func_name; \
+        MAKE_STD_ZVAL(func_name); \
+        ZVAL_STRING(func_name, function_name, 1); \
+        if( call_user_function_ex(function_table, object_ptr, func_name, retval_ptr, param_count, params, 0, NULL TSRMLS_CC) == FAILURE ){ \
+            php_error(E_ERROR, "Call function failed: %s", function_name); \
+        } \
+        zval_ptr_dtor(&func_name); \
+    }while(0)
 
 #endif	/* PHP_CII_H */
 
