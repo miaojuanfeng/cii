@@ -41,7 +41,7 @@ PHP_METHOD(cii_lang, __construct)
 PHP_METHOD(cii_lang, load)
 {
 	char *langfile, *idiom;
-	uint file_len, idiom_len;
+	uint file_len = 0, idiom_len = 0;
 
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &langfile, &file_len, &idiom, &idiom_len) == FAILURE ){
 		return;
@@ -52,11 +52,12 @@ PHP_METHOD(cii_lang, load)
 	}else{
 		char *file;
 		uint len;
-		zval *language;
-		zval **lang;
 		char need_free_idiom = 0;
 
 		if( !idiom_len ){
+			zval *config;
+			CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &config, 0, NULL);
+			zval_ptr_dtor(&config);
 			zval **cfg_lang;
 			if( zend_hash_find(Z_ARRVAL_P(CII_G(config)), "language", 9, (void**)&cfg_lang) == FAILURE ){
 				idiom = estrndup("english", 8);
@@ -71,25 +72,35 @@ PHP_METHOD(cii_lang, load)
 		len = spprintf(&file, 0, "%s%s%s%s%s", "/usr/local/nginx/html/cii/language/", idiom, "/", langfile, ".php");
 
 		if (zend_hash_exists(&EG(included_files), file, len+1)) {
+			efree(file);
 			RETURN_TRUE;
 		}
 
 		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
 		if(cii_loader_import(file, len, 0 TSRMLS_CC)){
+			zval **lang;
+
 			if( zend_hash_find(EG(active_symbol_table), "lang", 5, (void**)&lang) == FAILURE ){
 				php_error(E_WARNING, "Language file contains no data: language/%s/%s.php", idiom, langfile);
 			}
 
-			language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
+			zval *z_idiom;
+			MAKE_STD_ZVAL(z_idiom);
+			ZVAL_STRING(z_idiom, idiom, idiom_len+1);
+			zval *is_loaded = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("is_loaded"), 1 TSRMLS_CC);
+			zend_hash_update(Z_ARRVAL_P(is_loaded), langfile, file_len+1, &z_idiom, sizeof(zval *), NULL);
+
+			zval *language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
 			php_array_merge(Z_ARRVAL_P(language), Z_ARRVAL_P(*lang), 0 TSRMLS_CC);
 		}
+
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 
 		efree(file);
 		if(need_free_idiom){
 			efree(idiom);
 		}
-		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 	}
 	RETURN_TRUE;
 }

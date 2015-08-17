@@ -15,7 +15,25 @@ PHP_METHOD(cii_config, __construct)
 	//init cii_config::config
 	zval *retval;
 	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &retval, 0, NULL);
-	zend_update_property(cii_config_ce, getThis(), ZEND_STRL("config"), retval TSRMLS_CC);
+	php_printf("ref:%d\n",Z_REFCOUNT_P(CII_G(config)));
+	php_printf("isref:%d\n",Z_ISREF_P(CII_G(config)));
+	
+	//php_printf("ref:%d\n",Z_REFCOUNT_P(CII_G(config)));
+	//php_printf("isref:%d\n",Z_ISREF_P(CII_G(config)));
+	//zend_update_property(cii_config_ce, getThis(), ZEND_STRL("config"), CII_G(config) TSRMLS_CC);
+	zval *temp;
+	MAKE_STD_ZVAL(temp);
+	ZVAL_STRING(temp,"hello",1);
+	add_property_zval_ex(getThis(), ZEND_STRS("config"), temp TSRMLS_CC);
+
+zval *config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
+	//don't know why when update property it will separate if zval is ref
+	zval **config_ptr_ptr = &config;
+	zval_ptr_dtor(config_ptr_ptr);
+	*config_ptr_ptr = CII_G(config);
+	php_printf("c-ref:%d\n",Z_REFCOUNT_P(config));
+	php_printf("c-isref:%d\n",Z_ISREF_P(config));
+
 	zval_ptr_dtor(&retval);
 
 	php_printf("Info: Config Class Initialized\n");

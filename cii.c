@@ -187,7 +187,10 @@ PHP_FUNCTION(cii_get_config)
 
 	zval_ptr_dtor(return_value_ptr);
 	(*return_value_ptr) = CII_G(config);
-	Z_ADDREF_P(*return_value_ptr);
+	Z_ADDREF_P(CII_G(config));
+	Z_SET_ISREF_P(CII_G(config));
+	php_printf("ref:%d\n",Z_REFCOUNT_P(CII_G(config)));
+	php_printf("isref:%d\n",Z_ISREF_P(CII_G(config)));
 }
 
 PHP_FUNCTION(cii_test)
