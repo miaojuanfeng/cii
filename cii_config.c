@@ -13,8 +13,8 @@ zend_class_entry *cii_config_ce;
 PHP_METHOD(cii_config, __construct)
 {
 	//init cii_config::config
-	zval *retval;
-	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &retval, 0, NULL);
+	zval *get_config_result;
+	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &get_config_result, 0, NULL);
 	/*
 	* we will use zend_update_property() or add_property_zval_ex() function to update class property.
 	* these function will separate zval when zval's is_ref__gc is true.
@@ -24,47 +24,98 @@ PHP_METHOD(cii_config, __construct)
 	* --  Z_SET_ISREF_P();
 	* it's a good way to lead zend_update_property() not separate zval.
 	*/
-	Z_UNSET_ISREF_P(retval);
-	zend_update_property(cii_config_ce, getThis(), ZEND_STRL("config"), retval TSRMLS_CC);
-	Z_SET_ISREF_P(retval);
-	zval_ptr_dtor(&retval);
+	Z_UNSET_ISREF_P(get_config_result);
+	zend_update_property(cii_config_ce, getThis(), ZEND_STRL("config"), get_config_result TSRMLS_CC);
+	Z_SET_ISREF_P(get_config_result);
 	//
 	//preg_match('/^((\[[0-9a-f:]+\])|(\d{1,3}(\.\d{1,3}){3})|[a-z0-9\-\.]+)(:\d+)?$/i', $_SERVER['HTTP_HOST']);
-	zval **server = &PG(http_globals)[TRACK_VARS_SERVER];
-	zval **http_host, **script_name, **script_filename;
-    if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_HOST", sizeof("HTTP_HOST"), (void**)&http_host) == FAILURE ||
-    	zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_NAME", sizeof("SCRIPT_NAME"), (void**)&script_name) == FAILURE ||
-    	zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void**)&script_filename) == FAILURE ){
-    	php_printf("not found!\n");
-    	//return;
-    }else{
-    	php_printf("HTTP_HOST:%s\n",Z_STRVAL_PP(http_host));
-    	php_printf("SCRIPT_NAME:%s\n",Z_STRVAL_PP(script_name));
-    	php_printf("SCRIPT_FILENAME:%s\n",Z_STRVAL_PP(script_filename));
-    	zval *retval;
-    	zval **params[1];
-    	MAKE_STD_ZVAL(*params[0]);
-    	ZVAL_STRING(*params[0], Z_STRVAL_PP(script_filename), 1);
-    	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "basename", &retval, 1, params);
-    	php_printf("basename:%s\n",Z_STRVAL_P(retval));
-    	zval_ptr_dtor(&retval);
-    }
-    return;
-	//
-	zval *ret;
-	zval *preg;
-	zval *host;
-	zval **params[2];
-	MAKE_STD_ZVAL(preg);
-	ZVAL_STRING(preg, "/^((\\[[0-9a-f:]+\\])|(\\d{1,3}(\\.\\d{1,3}){3})|[a-z0-9\\-\\.]+)(:\\d+)?$/i", 1);
-	MAKE_STD_ZVAL(host);
-	ZVAL_STRING(host, "http://www.baidu.com", 1);
-	params[0] = &preg;
-	params[1] = &host;
-	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "preg_match", &ret, 2, params);
-	php_printf("type:%d\n",Z_TYPE_P(ret));
-	php_printf("value:%ld\n",Z_LVAL_P(ret));
-	php_printf("s:%s\n",Z_STRVAL_P(preg));
+	zval **base_url_value;
+	/*zend_hash_find(Z_ARRVAL_P(get_config_result), "base_url", sizeof("base_url"), (void**)&base_url_value);
+	php_printf("base_url type:%d\n",Z_TYPE_P(*base_url_value));
+	php_printf("base_url value:%s\n",Z_STRVAL_P(*base_url_value));
+	php_printf("base_url len:%d\n",Z_STRLEN_P(*base_url_value));*/
+	if( zend_hash_find(Z_ARRVAL_P(get_config_result), "base_url", sizeof("base_url"), (void**)&base_url_value) == FAILURE ||
+		Z_TYPE_PP(base_url_value) == IS_STRING && Z_STRLEN_PP(base_url_value) == 0 && !strcmp(Z_STRVAL_PP(base_url_value), "") ){
+		zval **server = &PG(http_globals)[TRACK_VARS_SERVER];
+		zval **http_host;
+		zval *default_base_url;
+		MAKE_STD_ZVAL(default_base_url);
+		//php_printf("base_url is empty\n");
+		if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_HOST", sizeof("HTTP_HOST"), (void**)&http_host) != FAILURE ){
+			zval *preg_match_result;
+			zval *preg;
+			zval *host;
+			zval **params[2];
+			MAKE_STD_ZVAL(preg);
+			ZVAL_STRING(preg, "/^((\\[[0-9a-f:]+\\])|(\\d{1,3}(\\.\\d{1,3}){3})|[a-z0-9\\-\\.]+)(:\\d+)?$/i", 1);
+			MAKE_STD_ZVAL(host);
+			ZVAL_STRING(host, Z_STRVAL_PP(http_host), 1);
+			params[0] = &preg;
+			params[1] = &host;
+			CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "preg_match", &preg_match_result, 2, params);
+			//php_printf("type:%d\n",Z_TYPE_P(preg_match_result));
+			//php_printf("value:%ld\n",Z_LVAL_P(preg_match_result));
+			if(Z_LVAL_P(preg_match_result)){
+				zval **script_name, **script_filename;
+			    if(	zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_NAME", sizeof("SCRIPT_NAME"), (void**)&script_name) == FAILURE ||
+			    	zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void**)&script_filename) == FAILURE ){
+			    	//php_printf("not found!\n");
+			    	//return;
+			    	goto set_default_base_url;
+			    }else{
+			    	char *base_url;
+			    	//php_printf("HTTP_HOST:%s\n",Z_STRVAL_PP(http_host));
+			    	//php_printf("SCRIPT_NAME:%s\n",Z_STRVAL_PP(script_name));
+			    	//php_printf("SCRIPT_FILENAME:%s\n",Z_STRVAL_PP(script_filename));
+			    	zval *basename_retval;
+			    	zval *basename_param_value;
+			    	zval **basename_params[1];
+			    	MAKE_STD_ZVAL(basename_param_value);
+			    	ZVAL_STRING(basename_param_value, Z_STRVAL_PP(script_filename), 1);
+			    	basename_params[0] = &basename_param_value;
+			    	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "basename", &basename_retval, 1, basename_params);
+			    	//php_printf("basename_retval:%s\n",Z_STRVAL_P(basename_retval));
+			    	zval *strpos_retval;
+			    	zval **strpos_params[2];
+			    	Z_ADDREF_PP(script_name);
+			    	Z_ADDREF_P(basename_retval);
+			    	strpos_params[0] = script_name;
+			    	strpos_params[1] = &basename_retval;
+			    	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "strpos", &strpos_retval, 2, strpos_params);
+			    	//php_printf("strpos_retval:%ld\n",Z_LVAL_P(strpos_retval));
+			    	zval *substr_retval;
+			    	zval **substr_params[3];
+			    	zval *substr_param_start;
+			    	MAKE_STD_ZVAL(substr_param_start);
+			    	ZVAL_LONG(substr_param_start, 0);
+			    	Z_ADDREF_PP(script_name);
+			    	Z_ADDREF_P(strpos_retval);
+			    	substr_params[0] = script_name;
+			    	substr_params[1] = &substr_param_start;
+			    	substr_params[2] = &strpos_retval;
+			    	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "substr", &substr_retval, 3, substr_params);
+			    	//php_printf("substr_retval:%s\n",Z_STRVAL_P(substr_retval));
+
+			    	spprintf(&base_url, 0, "%s%s%s", "http://", Z_STRVAL_PP(http_host), Z_STRVAL_P(substr_retval));
+			    	ZVAL_STRING(default_base_url, base_url, 0);
+
+			    	zval_ptr_dtor(&basename_retval);
+			    	zval_ptr_dtor(&strpos_retval);
+			    	zval_ptr_dtor(&substr_retval);
+			    }
+			}else{
+				goto set_default_base_url;
+			}
+			zval_ptr_dtor(&preg_match_result);
+			zval_ptr_dtor(&preg);
+			zval_ptr_dtor(&host);
+		}else{
+set_default_base_url:
+			ZVAL_STRING(default_base_url, "http://localhost/", 1);
+		}
+		zend_hash_update(Z_ARRVAL_P(get_config_result), "base_url", 9, &default_base_url, sizeof(zval *), NULL);
+	}
+	zval_ptr_dtor(&get_config_result);
 	//output log
 	php_printf("Info: Config Class Initialized\n");
 }
