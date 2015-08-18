@@ -28,6 +28,43 @@ PHP_METHOD(cii_config, __construct)
 	zend_update_property(cii_config_ce, getThis(), ZEND_STRL("config"), retval TSRMLS_CC);
 	Z_SET_ISREF_P(retval);
 	zval_ptr_dtor(&retval);
+	//
+	//preg_match('/^((\[[0-9a-f:]+\])|(\d{1,3}(\.\d{1,3}){3})|[a-z0-9\-\.]+)(:\d+)?$/i', $_SERVER['HTTP_HOST']);
+	zval **server = &PG(http_globals)[TRACK_VARS_SERVER];
+	zval **http_host, **script_name, **script_filename;
+    if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_HOST", sizeof("HTTP_HOST"), (void**)&http_host) == FAILURE ||
+    	zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_NAME", sizeof("SCRIPT_NAME"), (void**)&script_name) == FAILURE ||
+    	zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void**)&script_filename) == FAILURE ){
+    	php_printf("not found!\n");
+    	//return;
+    }else{
+    	php_printf("HTTP_HOST:%s\n",Z_STRVAL_PP(http_host));
+    	php_printf("SCRIPT_NAME:%s\n",Z_STRVAL_PP(script_name));
+    	php_printf("SCRIPT_FILENAME:%s\n",Z_STRVAL_PP(script_filename));
+    	zval *retval;
+    	zval **params[1];
+    	MAKE_STD_ZVAL(*params[0]);
+    	ZVAL_STRING(*params[0], Z_STRVAL_PP(script_filename), 1);
+    	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "basename", &retval, 1, params);
+    	php_printf("basename:%s\n",Z_STRVAL_P(retval));
+    	zval_ptr_dtor(&retval);
+    }
+    return;
+	//
+	zval *ret;
+	zval *preg;
+	zval *host;
+	zval **params[2];
+	MAKE_STD_ZVAL(preg);
+	ZVAL_STRING(preg, "/^((\\[[0-9a-f:]+\\])|(\\d{1,3}(\\.\\d{1,3}){3})|[a-z0-9\\-\\.]+)(:\\d+)?$/i", 1);
+	MAKE_STD_ZVAL(host);
+	ZVAL_STRING(host, "http://www.baidu.com", 1);
+	params[0] = &preg;
+	params[1] = &host;
+	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "preg_match", &ret, 2, params);
+	php_printf("type:%d\n",Z_TYPE_P(ret));
+	php_printf("value:%ld\n",Z_LVAL_P(ret));
+	php_printf("s:%s\n",Z_STRVAL_P(preg));
 	//output log
 	php_printf("Info: Config Class Initialized\n");
 }
