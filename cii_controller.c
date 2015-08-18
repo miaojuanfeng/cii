@@ -33,7 +33,7 @@ PHP_METHOD(cii_controller, __construct){
 	zval *retval;
 	CII_CALL_USER_FUNCTION_EX(NULL, &load, "__construct", &retval, 0, NULL);
 	zval_ptr_dtor(&retval);
-	//
+	//output log
 	php_printf("Info: Controller Class Initialized\n");
 }
 /**
