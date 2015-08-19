@@ -102,13 +102,23 @@ PHP_METHOD(cii_config, __construct)
 			    	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "substr", &substr_retval, 3, substr_params);
 			    	zval_ptr_dtor(&substr_param_start);
 			    	//php_printf("substr_retval:%s\n",Z_STRVAL_P(substr_retval));
+			    	zval *cii_is_https_retval;
+			    	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_is_https", &cii_is_https_retval, 0, NULL);
 
-			    	spprintf(&base_url, 0, "%s%s%s", "http://", Z_STRVAL_PP(http_host), Z_STRVAL_P(substr_retval));
+			    	char *is_php;
+			    	if(Z_LVAL_P(cii_is_https_retval)){
+			    		is_php = "https";
+			    	}else{
+			    		is_php = "http";
+			    	}
+
+			    	spprintf(&base_url, 0, "%s%s%s%s", is_php, "://", Z_STRVAL_PP(http_host), Z_STRVAL_P(substr_retval));
 			    	ZVAL_STRING(default_base_url, base_url, 0);
 
 			    	zval_ptr_dtor(&basename_retval);
 			    	zval_ptr_dtor(&strpos_retval);
 			    	zval_ptr_dtor(&substr_retval);
+			    	zval_ptr_dtor(&cii_is_https_retval);
 			    }
 			}else{
 				zval_ptr_dtor(&preg_match_result);
