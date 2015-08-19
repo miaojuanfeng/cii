@@ -32,6 +32,7 @@
 #include "cii_helper.c"
 #include "cii_lang.c"
 #include "cii_config.c"
+#include "cii_router.c"
 
 
 ZEND_DECLARE_MODULE_GLOBALS(cii)
@@ -53,11 +54,13 @@ static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 {
 	MAKE_STD_ZVAL(cii_globals->config);
 	array_init(cii_globals->config);
+	MAKE_STD_ZVAL(cii_globals->apppath);
 }
 
 static void php_cii_globals_dtor(zend_cii_globals *cii_globals)
 {
 	zval_ptr_dtor(&cii_globals->config);
+	zval_ptr_dtor(&cii_globals->apppath);
 }
 
 PHP_MINIT_FUNCTION(cii)
@@ -71,6 +74,7 @@ PHP_MINIT_FUNCTION(cii)
 	ZEND_MINIT(cii_loader)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_lang)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_config)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_router)(INIT_FUNC_ARGS_PASSTHRU);
 	return SUCCESS;
 }
 
@@ -226,52 +230,146 @@ PHP_FUNCTION(cii_is_https)
 }
 
 
-PHP_FUNCTION(cii_test)
+PHP_FUNCTION(cii_run)
 {
+	ZVAL_STRING(CII_G(apppath), "/usr/local/nginx/html/cii/", 1);
+
 	zval **carrier = &PG(http_globals)[TRACK_VARS_SERVER];
 	/*HashPosition p = Z_ARRVAL_PP(carrier)->pListHead;
 	while(p){
     	php_printf("server:%s\n",p->arKey);
     	p = p->pListNext;
     }*/
+    /*zval delim, *retval, temp;
+	ZVAL_STRING(&delim, "/", 1);
+	ZVAL_STRING(&temp, "/asdas/asdasd/sadwqeq/sdas", 1);
+	MAKE_STD_ZVAL(retval);
+	array_init(retval);
+	php_printf("value: %s\n",Z_STRVAL(delim));
+	php_printf("value: %s\n",Z_STRVAL(temp));
+	php_explode(&delim, &temp, retval, LONG_MAX);
+	php_printf("type: %d\n",Z_TYPE_P(retval));*/
+
+	zval **class = NULL;
+	zval **function = NULL;
+	char *file;
+	uint file_len;
     zval **query;
-    if( zend_hash_find(Z_ARRVAL_PP(carrier), "QUERY_STRING", 13, (void**)&query) == FAILURE ){
-    	zval *temp;
-    	MAKE_STD_ZVAL(temp);
-    	ZVAL_STRING(temp,"/home/index/123",1);
-    	query = &temp;
-    	//return;
+    zval *uri_arr = NULL;
+    zval *class_temp = NULL;
+    zval *function_temp = NULL;
+    //zval *query_temp;
+   // MAKE_STD_ZVAL(query_temp);
+   // ZVAL_STRING(query_temp, "/home/index/", 1);
+   // query = &query_temp;
+    if( zend_hash_find(Z_ARRVAL_PP(carrier), "QUERY_STRING", 13, (void**)&query) != FAILURE &&
+    	Z_TYPE_PP(query) == IS_STRING && Z_STRLEN_PP(query) > 1){
+    	zval zdelim, zstr;
+    	ZVAL_STRINGL(&zdelim, "/", 1, 1);
+    	{
+    		char *p = Z_STRVAL_PP(query);
+    		uint p_len = Z_STRLEN_PP(query);
+    		//php_printf("cmp: %d\n", p[0] == '/');
+    		if( p[0] == '/' && --p_len > 0 ){
+    			p++;
+    		}
+    		if( p_len > 0 && p[p_len-1] == '/'){
+    			p_len--;
+    		}
+    		//php_printf("p: %c\n", p[0]);
+    		//php_printf("len: %d\n", p_len);
+    		//php_printf("plen: %c\n", p[p_len-1]);
+    		ZVAL_STRINGL(&zstr, p, p_len, 1);
+    	}	
+    	MAKE_STD_ZVAL(uri_arr);
+    	array_init(uri_arr);
+    	php_explode(&zdelim, &zstr, uri_arr, LONG_MAX);
+    	php_printf("type: %d\n",Z_TYPE_P(uri_arr));
+    	php_printf("num: %d\n",Z_ARRVAL_P(uri_arr)->nNumOfElements);
+    	zval_dtor(&zdelim);
+    	zval_dtor(&zstr);
+
+    	/*zval *router_obj;
+    	MAKE_STD_ZVAL(router_obj);
+    	object_init_ex(router_obj, cii_router_ce);
+
+    	zend_update_property()*/
+    	
+    	if( Z_ARRVAL_P(uri_arr)->nNumOfElements >= 1 ){
+    		zend_hash_index_find(Z_ARRVAL_P(uri_arr), 0, (void**)&class);
+    		//php_printf("class: %s\n", Z_STRVAL_PP(class));
+    	}
+    	if( Z_ARRVAL_P(uri_arr)->nNumOfElements >= 2 ){
+    		zend_hash_index_find(Z_ARRVAL_P(uri_arr), 1, (void**)&function);
+    		//php_printf("function: %s\n", Z_STRVAL_PP(function));
+    	}
+    	if( Z_ARRVAL_P(uri_arr)->nNumOfElements > 2 ){
+
+    	}
+    	if( !class || !function ){
+    		goto set_default_class_and_function;
+    	}
+    }else{
+set_default_class_and_function:
+    	if( !class ){
+    		MAKE_STD_ZVAL(class_temp);
+    		ZVAL_STRING(class_temp, "welcome", 1);
+    		class = &class_temp;
+    	}
+    	if( !function ){
+    		MAKE_STD_ZVAL(function_temp);
+    		ZVAL_STRING(function_temp, "index", 1);
+    		function = &function_temp;
+    	}
     }
-    php_printf("QUERY_STRING:%s\n",Z_STRVAL_PP(query));
-    zval *cut;
-    MAKE_STD_ZVAL(cut);
-    ZVAL_STRING(cut,"/",1);
-    zval **params[2];
-    params[0] = &cut;
-    params[1] = query;
-    zval *func_name;
-    MAKE_STD_ZVAL(func_name);
-    ZVAL_STRING(func_name,"explode",1);
-    zval *retval;
-    if( call_user_function_ex(EG(function_table), NULL, func_name, &retval, 2, params, 0, NULL TSRMLS_CC) == FAILURE ){
-		php_error(E_ERROR, "Call function failed");
+    php_printf("class: %s\n", Z_STRVAL_PP(class));
+    php_printf("function: %s\n", Z_STRVAL_PP(function));
+
+
+
+	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "controllers/", Z_STRVAL_PP(class), ".php");
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
+	if(php_output_start_user(NULL, 0, PHP_OUTPUT_HANDLER_STDFLAGS TSRMLS_CC) == SUCCESS){
+		cii_loader_import(file, file_len, 0 TSRMLS_CC);
+		php_output_discard(TSRMLS_C);
+	}else{
+		php_error(E_WARNING, "failed to create buffer");
 	}
-	php_printf("%d\n",Z_TYPE_P(retval));
-	HashPosition p = Z_ARRVAL_P(retval)->pListHead;
-	while(p){
-    	php_printf("explode:%ld\n",p->h);
-    	p = p->pListNext;
+	efree(file);
+
+	zend_class_entry **controller_ce;
+	if( zend_hash_find(EG(class_table), Z_STRVAL_PP(class), Z_STRLEN_PP(class)+1, (void**)&controller_ce) == FAILURE ){
+		php_error(E_WARNING, "class not exists");
+	}else{
+		zval *controller_obj;
+		MAKE_STD_ZVAL(controller_obj);
+		object_init_ex(controller_obj, *controller_ce);
+		zval *ret;
+		CII_CALL_USER_FUNCTION_EX(NULL, &controller_obj, "__construct", &ret, 0, NULL);
+		zval_ptr_dtor(&ret);
+		zval *retval;
+		CII_CALL_USER_METHOD_EX(&controller_obj, Z_STRVAL_PP(function), &retval, 0, NULL TSRMLS_CC);
+		zval_ptr_dtor(&retval);
+	}
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+
+
+    if(class_temp){
+    	zval_ptr_dtor(&class_temp);
     }
-    zval_ptr_dtor(query);
-    zval_ptr_dtor(&retval);
-    zval_ptr_dtor(&func_name);
-    zval_ptr_dtor(&cut);
+    if(function_temp){
+    	zval_ptr_dtor(&function_temp);
+    }	
+    if(uri_arr){
+    	zval_ptr_dtor(&uri_arr);
+    }
 }
 
 const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
 	PHP_FE(cii_get_config, cii_get_config_arginfo)
-	PHP_FE(cii_test, NULL)
+	PHP_FE(cii_run, NULL)
 	PHP_FE(cii_is_https, NULL)
 	CII_HELPER_FUNCTION
 	PHP_FE_END

@@ -113,7 +113,7 @@ PHP_METHOD(cii_loader,view){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
-	file_len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/cii/views/", view, ".php");
+	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "views/", view, ".php");
 
 	if(zend_hash_exists(&EG(included_files), file, file_len + 1)){
 		efree(file);
