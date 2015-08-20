@@ -52,14 +52,21 @@ PHP_INI_END()
 
 static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 {
+	MAKE_STD_ZVAL(cii_globals->classes);
+	array_init(cii_globals->classes);
 	MAKE_STD_ZVAL(cii_globals->config);
 	array_init(cii_globals->config);
+	MAKE_STD_ZVAL(cii_globals->is_loaded);
+	array_init(cii_globals->is_loaded);
 	MAKE_STD_ZVAL(cii_globals->apppath);
+	ZVAL_STRING(cii_globals->apppath, "", 1);
 }
 
 static void php_cii_globals_dtor(zend_cii_globals *cii_globals)
 {
+	zval_ptr_dtor(&cii_globals->classes);
 	zval_ptr_dtor(&cii_globals->config);
+	zval_ptr_dtor(&cii_globals->is_loaded);
 	zval_ptr_dtor(&cii_globals->apppath);
 }
 
@@ -115,6 +122,16 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(cii_get_config_arginfo, 0, 1, 0)
 	ZEND_ARG_ARRAY_INFO(0, replace, 1)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(cii_load_class_arginfo, 0, 1, 0)
+	ZEND_ARG_INFO(0, class)
+	ZEND_ARG_INFO(0, param_count)
+	ZEND_ARG_INFO(0, params)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(cii_is_loaded_arginfo, 0, 1, 0)
+	ZEND_ARG_INFO(0, class)
 ZEND_END_ARG_INFO()
 
 PHP_FUNCTION(cii_get_instance)
@@ -195,6 +212,111 @@ PHP_FUNCTION(cii_get_config)
 		Z_ADDREF_P(*return_value_ptr);
 	}
 }
+
+ZEND_API zval* is_loaded(char *class){
+
+	if(class){
+		char *lower_class;
+		zval *zclass;
+
+		MAKE_STD_ZVAL(zclass);
+		ZVAL_STRING(zclass, class, 1);
+
+		lower_class = zend_str_tolower_dup(class, sizeof(class));
+		zend_hash_update(Z_ARRVAL_P(CII_G(is_loaded)), lower_class, strlen(lower_class)+1, &zclass, sizeof(zval *), NULL);
+
+		efree(lower_class);
+	}
+
+	return CII_G(is_loaded);
+}
+
+ZEND_API zval* load_class(char *class, uint param_count, zval **params[]){
+
+	zval **exist_object;
+	if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), class, strlen(class)+1, (void**)&exist_object) == SUCCESS ){
+		//php_printf("object found!\n");
+		return *exist_object;
+	}
+
+	char *lower_class;
+	char *file;
+	uint file_len;
+	zend_class_entry **class_ce;
+	zval *class_obj;
+	MAKE_STD_ZVAL(class_obj);
+	lower_class = zend_str_tolower_dup(class, sizeof(class));
+	php_printf("class: %s\n", lower_class);
+
+	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "libraries/", class, ".php");
+
+	php_printf("file: %s\n", file);
+
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
+	cii_loader_import(file, file_len, 0 TSRMLS_CC);
+	efree(file);
+
+	if( zend_hash_find(EG(class_table), lower_class, strlen(lower_class)+1, (void**)&class_ce) == FAILURE ){
+		php_error(E_WARNING, "Unable to locate the specified class: %s", class);
+		efree(lower_class);
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		return class_obj;
+	}
+
+	is_loaded(class);
+
+	object_init_ex(class_obj, *class_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), class, strlen(class)+1, &class_obj, sizeof(zval *), NULL);
+
+	/*zval *retval;
+	zval *func_name;
+	MAKE_STD_ZVAL(func_name);
+	ZVAL_STRING(func_name, "__construct", 1);
+	call_user_function_ex(NULL, &class_obj, func_name, &retval, param_count, params, 0, NULL TSRMLS_CC);
+	zval_ptr_dtor(&func_name);
+	zval_ptr_dtor(&retval);*/
+
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+	efree(lower_class);
+
+	return class_obj;
+}
+/**
+* Class registry
+*
+* This function acts as a singleton. If the requested class does not
+* exist it is instantiated and set to a static variable. If it has
+* previously been instantiated the variable is returned.
+*
+* @param	string	the class name being requested
+* @param	string	the directory where the class should be found
+* @param	string	an optional argument to pass to the class constructor
+* @return	object
+*/
+PHP_FUNCTION(cii_load_class)
+{
+	if(return_value_used){
+		zval_ptr_dtor(return_value_ptr);
+		(*return_value_ptr) = load_class("Calendar", 0, NULL);
+		Z_ADDREF_P(*return_value_ptr);
+	}	
+}
+/**
+* Keeps track of which libraries have been loaded. This function is
+* called by the load_class() function above
+*
+* @param	string
+* @return	array
+*/
+PHP_FUNCTION(cii_is_loaded)
+{
+	if(return_value_used){
+		zval_ptr_dtor(return_value_ptr);
+		(*return_value_ptr) = is_loaded(NULL);
+		Z_ADDREF_P(*return_value_ptr);
+	}	
+}
 /**
 * Is HTTPS?
 *
@@ -233,6 +355,8 @@ PHP_FUNCTION(cii_is_https)
 PHP_FUNCTION(cii_run)
 {
 	ZVAL_STRING(CII_G(apppath), "/usr/local/nginx/html/cii/", 1);
+	//Z_ADDREF_P(CII_G(apppath));
+	zend_hash_update(EG(zend_constants), "BASEPATH", 9, CII_G(apppath), sizeof(zval *), NULL); return;
 
 	zval **carrier = &PG(http_globals)[TRACK_VARS_SERVER];
 	/*HashPosition p = Z_ARRVAL_PP(carrier)->pListHead;
@@ -330,12 +454,12 @@ set_default_class_and_function:
 	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "controllers/", Z_STRVAL_PP(class), ".php");
 	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
-	if(php_output_start_user(NULL, 0, PHP_OUTPUT_HANDLER_STDFLAGS TSRMLS_CC) == SUCCESS){
+	//if(php_output_start_user(NULL, 0, PHP_OUTPUT_HANDLER_STDFLAGS TSRMLS_CC) == SUCCESS){
 		cii_loader_import(file, file_len, 0 TSRMLS_CC);
-		php_output_discard(TSRMLS_C);
-	}else{
-		php_error(E_WARNING, "failed to create buffer");
-	}
+	//	php_output_discard(TSRMLS_C);
+	//}else{
+	//	php_error(E_WARNING, "failed to create buffer");
+	//}
 	efree(file);
 
 	zend_class_entry **controller_ce;
@@ -346,10 +470,10 @@ set_default_class_and_function:
 		MAKE_STD_ZVAL(controller_obj);
 		object_init_ex(controller_obj, *controller_ce);
 		zval *ret;
-		CII_CALL_USER_FUNCTION_EX(NULL, &controller_obj, "__construct", &ret, 0, NULL);
+		CII_CALL_USER_METHOD_EX(&controller_obj, "__construct", &ret, 0, NULL);
 		zval_ptr_dtor(&ret);
 		zval *retval;
-		CII_CALL_USER_METHOD_EX(&controller_obj, Z_STRVAL_PP(function), &retval, 0, NULL TSRMLS_CC);
+		CII_CALL_USER_METHOD_EX(&controller_obj, Z_STRVAL_PP(function), &retval, 0, NULL);
 		zval_ptr_dtor(&retval);
 	}
 	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
@@ -371,6 +495,8 @@ const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_get_config, cii_get_config_arginfo)
 	PHP_FE(cii_run, NULL)
 	PHP_FE(cii_is_https, NULL)
+	PHP_FE(cii_load_class, cii_load_class_arginfo)
+	PHP_FE(cii_is_loaded, cii_is_loaded_arginfo)
 	CII_HELPER_FUNCTION
 	PHP_FE_END
 };
