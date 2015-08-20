@@ -32,7 +32,9 @@
 #include "cii_helper.c"
 #include "cii_lang.c"
 #include "cii_config.c"
+#include "cii_uri.c" 
 #include "cii_router.c"
+
 
 
 ZEND_DECLARE_MODULE_GLOBALS(cii)
@@ -81,6 +83,7 @@ PHP_MINIT_FUNCTION(cii)
 	ZEND_MINIT(cii_loader)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_lang)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_config)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_uri)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_router)(INIT_FUNC_ARGS_PASSTHRU);
 	return SUCCESS;
 }
@@ -231,11 +234,10 @@ ZEND_API zval* is_loaded(char *class){
 	return CII_G(is_loaded);
 }
 
-ZEND_API zval* load_class(char *class, uint param_count, zval **params[]){
-
+ZEND_API zval* load_class(char *class, uint param_count, zval **params[])
+{
 	zval **exist_object;
 	if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), class, strlen(class)+1, (void**)&exist_object) == SUCCESS ){
-		//php_printf("object found!\n");
 		return *exist_object;
 	}
 
@@ -296,9 +298,14 @@ ZEND_API zval* load_class(char *class, uint param_count, zval **params[]){
 */
 PHP_FUNCTION(cii_load_class)
 {
+	char *class;
+	uint class_len;
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &class, &class_len) == FAILURE ){
+		return;
+	}
 	if(return_value_used){
 		zval_ptr_dtor(return_value_ptr);
-		(*return_value_ptr) = load_class("Calendar", 0, NULL);
+		(*return_value_ptr) = load_class(class, 0, NULL);
 		Z_ADDREF_P(*return_value_ptr);
 	}	
 }
@@ -356,7 +363,48 @@ PHP_FUNCTION(cii_run)
 {
 	ZVAL_STRING(CII_G(apppath), "/usr/local/nginx/html/cii/", 1);
 	//Z_ADDREF_P(CII_G(apppath));
-	zend_hash_update(EG(zend_constants), "BASEPATH", 9, CII_G(apppath), sizeof(zval *), NULL); return;
+	zend_hash_update(EG(zend_constants), "BASEPATH", 9, CII_G(apppath), sizeof(zval *), NULL);
+	/*
+	* load CII_Lang object
+	*/
+	zval *cii_lang_obj;
+	MAKE_STD_ZVAL(cii_lang_obj);
+	object_init_ex(cii_lang_obj, cii_lang_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Lang", 5, &cii_lang_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_lang_ce->function_table, "__construct", 12)) {
+		zval *cii_lang_retval;
+		CII_CALL_USER_METHOD_EX(&cii_lang_obj, "__construct", &cii_lang_retval, 0, NULL);
+		zval_ptr_dtor(&cii_lang_retval);
+	}	
+	is_loaded("Lang");
+	/*
+	* load CII_URI object
+	*/
+	zval *cii_uri_obj;
+	MAKE_STD_ZVAL(cii_uri_obj);
+	object_init_ex(cii_uri_obj, cii_uri_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "URI", 4, &cii_uri_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_uri_ce->function_table, "__construct", 12)) {
+		zval *cii_uri_retval;
+		CII_CALL_USER_METHOD_EX(&cii_uri_obj, "__construct", &cii_uri_retval, 0, NULL);
+		zval_ptr_dtor(&cii_uri_retval);
+	}	
+	is_loaded("URI");
+	/*
+	* load CII_Router object
+	*/
+	zval *cii_router_obj;
+	MAKE_STD_ZVAL(cii_router_obj);
+	object_init_ex(cii_router_obj, cii_router_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Router", 7, &cii_router_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_router_ce->function_table, "__construct", 12)) {
+		zval *cii_router_retval;
+		CII_CALL_USER_METHOD_EX(&cii_router_obj, "__construct", &cii_router_retval, 0, NULL);
+		zval_ptr_dtor(&cii_router_retval);
+	}	
+	is_loaded("Router");
+
+	return;
 
 	zval **carrier = &PG(http_globals)[TRACK_VARS_SERVER];
 	/*HashPosition p = Z_ARRVAL_PP(carrier)->pListHead;

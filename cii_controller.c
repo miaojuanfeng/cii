@@ -21,19 +21,52 @@ ZEND_END_ARG_INFO ()
 * public function __construct()
 */
 PHP_METHOD(cii_controller, __construct){
-	//init instance
+	/*
+	* init instance
+	*/
 	zend_update_static_property(cii_controller_ce, ZEND_STRL("instance"), getThis() TSRMLS_CC);
-	//load object
-	zval *load;
-	MAKE_STD_ZVAL(load);
-	object_init_ex(load, cii_loader_ce);
-	zend_update_property(cii_controller_ce, getThis(), ZEND_STRL("load"), load TSRMLS_CC);
-	zval_ptr_dtor(&load);
-	//call load construct
-	zval *retval;
-	CII_CALL_USER_FUNCTION_EX(NULL, &load, "__construct", &retval, 0, NULL);
-	zval_ptr_dtor(&retval);
-	//output log
+	/*
+	* load is_loaded objects
+	*/
+	HashPosition pos;
+	char *key;
+	uint key_len;
+	ulong idx;
+	zval **value;
+	zval **exist_object;
+	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos);
+		    zend_hash_has_more_elements_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos) == SUCCESS;
+		    zend_hash_move_forward_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos)){
+			if(zend_hash_get_current_key_ex(Z_ARRVAL_P(CII_G(is_loaded)), &key, &key_len, &idx, 0, &pos) != HASH_KEY_IS_STRING){
+				continue;
+			}
+			if(zend_hash_get_current_data_ex(Z_ARRVAL_P(CII_G(is_loaded)), (void**)&value, &pos) == FAILURE){
+				continue;
+			}
+			if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), Z_STRVAL_PP(value), Z_STRLEN_PP(value)+1, (void**)&exist_object) == FAILURE ){
+				continue;
+			}
+			zend_update_property(cii_controller_ce, getThis(), key, key_len, *exist_object TSRMLS_CC);
+	}	    	
+	/*
+	* load cii_loader object
+	*/
+	zval *cii_load_obj;
+	MAKE_STD_ZVAL(cii_load_obj);
+	object_init_ex(cii_load_obj, cii_loader_ce);
+	zend_update_property(cii_controller_ce, getThis(), ZEND_STRL("load"), cii_load_obj TSRMLS_CC);
+	zval_ptr_dtor(&cii_load_obj);
+	/*
+	* call load construct
+	*/
+	if (zend_hash_exists(&cii_loader_ce->function_table, "__construct", 12)) {
+		zval *cii_load_retval;
+		CII_CALL_USER_METHOD_EX(&cii_load_obj, "__construct", &cii_load_retval, 0, NULL);
+		zval_ptr_dtor(&cii_load_retval);
+	}
+	/*
+	* output log
+	*/
 	php_printf("Info: Controller Class Initialized\n");
 }
 /**
@@ -62,7 +95,7 @@ ZEND_MINIT_FUNCTION(cii_controller){
 	 * CodeIgniter will be assigned to.
 	 */
 	zend_class_entry ce;
-	INIT_CLASS_ENTRY(ce, "cii_controller", cii_controller_methods);
+	INIT_CLASS_ENTRY(ce, "CII_Controller", cii_controller_methods);
 	cii_controller_ce = zend_register_internal_class(&ce TSRMLS_CC);
 	/**
 	 * Reference to the CI singleton

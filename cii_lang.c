@@ -140,7 +140,7 @@ zend_function_entry cii_lang_methods[] = {
 
 PHP_MINIT_FUNCTION(cii_lang){
 	zend_class_entry ce;
-	INIT_CLASS_ENTRY(ce,"cii_lang",cii_lang_methods);
+	INIT_CLASS_ENTRY(ce,"CII_Lang",cii_lang_methods);
 	cii_lang_ce = zend_register_internal_class(&ce TSRMLS_CC);
 
 	/**

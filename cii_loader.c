@@ -80,19 +80,25 @@ ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 }
 
 PHP_METHOD(cii_loader,__construct){
-	//init cii_loader::_ob_level
+	/*
+	* init cii_loader::_ob_level
+	*/
 	zval *_ob_level;
 	MAKE_STD_ZVAL(_ob_level);
 	ZVAL_LONG(_ob_level, php_output_get_level(TSRMLS_C));
 	zend_update_property(cii_loader_ce, getThis(), ZEND_STRL("_ob_level"), _ob_level TSRMLS_CC);
 	zval_ptr_dtor(&_ob_level);
-	//init cii_loader::_models
+	/*
+	* init cii_loader::_models
+	*/
 	zval *_models;
 	MAKE_STD_ZVAL(_models);
 	array_init(_models);
 	zend_update_property(cii_loader_ce, getThis(), ZEND_STRL("_models"), _models TSRMLS_CC);
 	zval_ptr_dtor(&_models);
-	//output log
+	/*
+	* output log
+	*/
 	php_printf("Info: Loader Class Initialized\n");
 }
 
@@ -396,7 +402,7 @@ zend_function_entry cii_loader_methods[] = {
 
 PHP_MINIT_FUNCTION(cii_loader){
 	zend_class_entry ce;
-	INIT_CLASS_ENTRY(ce, "cii_loader", cii_loader_methods);
+	INIT_CLASS_ENTRY(ce, "CII_Loader", cii_loader_methods);
 	cii_loader_ce = zend_register_internal_class(&ce TSRMLS_CC);
 	/**
 	 * Nesting level of the output buffering mechanism

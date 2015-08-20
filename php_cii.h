@@ -107,7 +107,7 @@ ZEND_END_MODULE_GLOBALS(cii)
             php_error(E_ERROR, "Call method failed: %s", function_name); \
         } \
         zval_ptr_dtor(&func_name); \
-    }while(0)    
+    }while(0)
 
 #endif	/* PHP_CII_H */
 
