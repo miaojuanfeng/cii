@@ -10,19 +10,25 @@ zend_class_entry *cii_lang_ce;
 */
 PHP_METHOD(cii_lang, __construct)
 {
-	//init cii_lang::language
+	/*
+	*	init cii_lang::language
+	*/
 	zval *language;
 	MAKE_STD_ZVAL(language);
 	array_init(language);
 	zend_update_property(cii_lang_ce, getThis(), ZEND_STRL("language"), language TSRMLS_CC);
 	zval_ptr_dtor(&language);
-	//init cii_lang::is_loaded
+	/*
+	*	init cii_lang::is_loaded
+	*/
 	zval *is_loaded;
 	MAKE_STD_ZVAL(is_loaded);
 	array_init(is_loaded);
 	zend_update_property(cii_lang_ce, getThis(), ZEND_STRL("is_loaded"), is_loaded TSRMLS_CC);
 	zval_ptr_dtor(&is_loaded);
-	//output log
+	/*
+	*	output log
+	*/
 	php_printf("Info: Language Class Initialized\n");
 }
 /**
@@ -69,7 +75,7 @@ PHP_METHOD(cii_lang, load)
 			need_free_idiom = 1;
 		}
 
-		len = spprintf(&file, 0, "%s%s%s%s%s", "/usr/local/nginx/html/cii/language/", idiom, "/", langfile, ".php");
+		len = spprintf(&file, 0, "%s%s%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "language/", idiom, "/", langfile, ".php");
 
 		if (zend_hash_exists(&EG(included_files), file, len+1)) {
 			efree(file);

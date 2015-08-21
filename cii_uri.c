@@ -26,23 +26,22 @@ PHP_METHOD(cii_uri, __construct)
 	zval **query;
 	zval **server = &PG(http_globals)[TRACK_VARS_SERVER];
 
-    //debug
+    /*//debug
 	zval *query_temp;
     MAKE_STD_ZVAL(query_temp);
-    ZVAL_STRING(query_temp, "/home", 1);
+    ZVAL_STRING(query_temp, "/", 1);
     query = &query_temp;
-    //debug
+    //debug*/
 
-    if( 1 || zend_hash_find(Z_ARRVAL_PP(server), "QUERY_STRING", 13, (void**)&query) != FAILURE &&
+    if( /*1 ||*/ zend_hash_find(Z_ARRVAL_PP(server), "QUERY_STRING", 13, (void**)&query) != FAILURE &&
     	Z_TYPE_PP(query) == IS_STRING && Z_STRLEN_PP(query) > 1){
 
-    	zval zdelim;
     	zval zstr;
-    	zval *uri_string;
-    	zval *uri_arr;
 		char *p = Z_STRVAL_PP(query);
 		uint p_len = Z_STRLEN_PP(query);
-
+		/*
+    	*	trim(query, '/')  or ltrim(query, '/') and rtrim(query, '/')
+    	*/
 		if( p[0] == '/' && --p_len > 0 ){
 			p++;
 		}
@@ -51,46 +50,49 @@ PHP_METHOD(cii_uri, __construct)
 		}
 		ZVAL_STRINGL(&zstr, p, p_len, 1);
 		/*
-		* update cii_uri::uri_string
+		*	update cii_uri::uri_string
 		*/
+		zval *uri_string;
 		MAKE_STD_ZVAL(uri_string);
-		*uri_string = zstr;
+		ZVAL_COPY_VALUE(uri_string, &zstr);
 		zval_copy_ctor(uri_string);
-    	zend_update_property(cii_uri_ce, getThis(), ZEND_STRL("uri_string"), uri_string TSRMLS_CC);
-    	zval_ptr_dtor(&uri_string);
-
+		zend_update_property(cii_uri_ce, getThis(), ZEND_STRL("uri_string"), uri_string TSRMLS_CC);
+		zval_ptr_dtor(&uri_string);
+		/*
+		*	explode uri
+		*/
+		zval zdelim;
     	ZVAL_STRINGL(&zdelim, "/", 1, 1);
-
+    	zval *uri_arr;
     	MAKE_STD_ZVAL(uri_arr);
     	array_init(uri_arr);
     	php_explode(&zdelim, &zstr, uri_arr, LONG_MAX);
-    	//php_printf("type: %d\n",Z_TYPE_P(uri_arr));
-    	//php_printf("num: %d\n",Z_ARRVAL_P(uri_arr)->nNumOfElements);
-    	uint i;
-    	HashPosition pos = Z_ARRVAL_P(uri_arr)->pListHead;
+    	/*
+		*	update cii_uri::segments and cii_uri::rsegments
+		*/
+    	uint i = 1;
+    	HashPosition pos;
+    	zval **value;
     	zval *segments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("segments"), 1 TSRMLS_CC);
     	zval *rsegments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("rsegments"), 1 TSRMLS_CC);
-    	for(i = 1; i <= Z_ARRVAL_P(uri_arr)->nNumOfElements; i++){
-    		zend_hash_index_update(Z_ARRVAL_P(segments),  i, pos->pData, sizeof(zval *), NULL);
-    		zend_hash_index_update(Z_ARRVAL_P(rsegments), i, pos->pData, sizeof(zval *), NULL);
-    		pos = pos->pListNext;
-    	}	
-
+    	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(uri_arr), &pos);
+		    zend_hash_has_more_elements_ex(Z_ARRVAL_P(uri_arr), &pos) == SUCCESS;
+		    zend_hash_move_forward_ex(Z_ARRVAL_P(uri_arr), &pos)){
+				if(zend_hash_get_current_data_ex(Z_ARRVAL_P(uri_arr), (void**)&value, &pos) == FAILURE){
+					continue;
+				}
+				Z_ADDREF_PP(value);
+	    		zend_hash_index_update(Z_ARRVAL_P(segments),  i, value, sizeof(zval *), NULL);
+	    		zend_hash_index_update(Z_ARRVAL_P(rsegments), i, value, sizeof(zval *), NULL);
+	    		i++;
+    	}
     	zval_dtor(&zdelim);
     	zval_dtor(&zstr);
     	zval_ptr_dtor(&uri_arr);
-
-    	/*zval *router_obj;
-    	MAKE_STD_ZVAL(router_obj);
-    	object_init_ex(router_obj, cii_router_ce);
-
-    	zend_update_property()*/
-    	
+		zval_ptr_dtor(query);
     }
-
-    zval_ptr_dtor(query);
 	/*
-	* output log
+	*	output log
 	*/
 	php_printf("Info: URI Class Initialized\n");
 }
