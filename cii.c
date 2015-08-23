@@ -403,10 +403,108 @@ PHP_FUNCTION(cii_run)
 		zval_ptr_dtor(&cii_router_retval);
 	}	
 	is_loaded("Router");
+	/*
+	* load CII_Config object
+	*/
+	zval *cii_config_obj;
+	MAKE_STD_ZVAL(cii_config_obj);
+	object_init_ex(cii_config_obj, cii_config_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Config", 7, &cii_config_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_config_ce->function_table, "__construct", 12)) {
+		zval *cii_config_retval;
+		CII_CALL_USER_METHOD_EX(&cii_config_obj, "__construct", &cii_config_retval, 0, NULL);
+		zval_ptr_dtor(&cii_config_retval);
+	}	
+	is_loaded("Config");
+	/*
+	* load is_loaded objects
+	*/
+	zval *call_class = zend_read_property(cii_router_ce, cii_router_obj, ZEND_STRL("class"), 1 TSRMLS_CC);
+	zval *call_method = zend_read_property(cii_router_ce, cii_router_obj, ZEND_STRL("method"), 1 TSRMLS_CC);
+
+	char *file;
+	uint file_len;
+	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "controllers/", Z_STRVAL_P(call_class), ".php");
+
+	if (zend_hash_exists(&EG(included_files), file, file_len + 1)){
+		efree(file);
+		RETURN_ZVAL(getThis(), 1, 0);
+	}
+
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+	cii_loader_import(file, file_len, 0 TSRMLS_CC);
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+	efree(file);
+
+	zend_class_entry **run_class_ce;
+	if( zend_hash_find(EG(class_table), Z_STRVAL_P(call_class), Z_STRLEN_P(call_class)+1, (void**)&run_class_ce) != FAILURE ){
+		/*
+		* load is_loaded objects
+		*/
+		zval *run_obj;
+		MAKE_STD_ZVAL(run_obj);
+		object_init_ex(run_obj, *run_class_ce);
+		/*
+		* load is_loaded objects
+		*/
+		HashPosition pos;
+		char *key;
+		uint key_len;
+		ulong idx;
+		zval **value;
+		zval **exist_object;
+		uint i = 1;
+		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos);
+			    zend_hash_has_more_elements_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos) == SUCCESS;
+			    zend_hash_move_forward_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos)){
+				if(zend_hash_get_current_key_ex(Z_ARRVAL_P(CII_G(is_loaded)), &key, &key_len, &idx, 0, &pos) != HASH_KEY_IS_STRING){
+					continue;
+				}
+				if(zend_hash_get_current_data_ex(Z_ARRVAL_P(CII_G(is_loaded)), (void**)&value, &pos) == FAILURE){
+					continue;
+				}
+				if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), Z_STRVAL_PP(value), Z_STRLEN_PP(value)+1, (void**)&exist_object) == FAILURE ){
+					continue;
+				}
+				/*
+				*	if object already contains property named key. and we use:
+				*	zend_update_property(*run_class_ce, run_obj, key, key_len, *exist_object TSRMLS_CC);
+				*	to update property,it will add a new property to object instead update the same name property.
+				* 	so i use constant string instead variable string
+				*	the reason still unknown
+				*/
+				switch(i){
+					case 1:
+						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "lang", 4, 1 TSRMLS_CC)) == IS_NULL ){
+							zend_update_property(*run_class_ce, run_obj, "lang", 4, *exist_object TSRMLS_CC);
+						}
+						break;
+					case 2:
+						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "uri", 3, 1 TSRMLS_CC)) == IS_NULL ){
+							zend_update_property(*run_class_ce, run_obj, "uri", 3, *exist_object TSRMLS_CC);
+						}
+						break;
+					case 3:
+						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "router", 6, 1 TSRMLS_CC)) == IS_NULL ){
+							zend_update_property(*run_class_ce, run_obj, "router", 6, *exist_object TSRMLS_CC);
+						}
+						break;
+					case 4:
+						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "config", 6, 1 TSRMLS_CC)) == IS_NULL ){
+							zend_update_property(*run_class_ce, run_obj, "config", 6, *exist_object TSRMLS_CC);
+						}
+						break;
+				}
+				i++;
+		}
+		RETVAL_ZVAL(run_obj, 1, 0);
+		zval_ptr_dtor(&run_obj);
+		return;
+	}
 
 	return;
 
-	zval **carrier = &PG(http_globals)[TRACK_VARS_SERVER];
+	/*zval **carrier = &PG(http_globals)[TRACK_VARS_SERVER];
 	/*HashPosition p = Z_ARRVAL_PP(carrier)->pListHead;
 	while(p){
     	php_printf("server:%s\n",p->arKey);
@@ -422,7 +520,7 @@ PHP_FUNCTION(cii_run)
 	php_explode(&delim, &temp, retval, LONG_MAX);
 	php_printf("type: %d\n",Z_TYPE_P(retval));*/
 
-	zval **class = NULL;
+	/*zval **class = NULL;
 	zval **function = NULL;
 	char *file;
 	uint file_len;
@@ -467,7 +565,7 @@ PHP_FUNCTION(cii_run)
 
     	zend_update_property()*/
     	
-    	if( Z_ARRVAL_P(uri_arr)->nNumOfElements >= 1 ){
+    	/*if( Z_ARRVAL_P(uri_arr)->nNumOfElements >= 1 ){
     		zend_hash_index_find(Z_ARRVAL_P(uri_arr), 0, (void**)&class);
     		//php_printf("class: %s\n", Z_STRVAL_PP(class));
     	}
@@ -535,7 +633,7 @@ set_default_class_and_function:
     }	
     if(uri_arr){
     	zval_ptr_dtor(&uri_arr);
-    }
+    }*/
 }
 
 const zend_function_entry cii_functions[] = {

@@ -76,7 +76,7 @@ PHP_MINIT_FUNCTION(cii_router)
 	 *
 	 * @var	string
 	 */
-	zend_declare_property_stringl(cii_router_ce, ZEND_STRL("class"), "", 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_stringl(cii_router_ce, ZEND_STRL("class"), "home", 4, ZEND_ACC_PUBLIC TSRMLS_CC);
 	/**
 	 * Current method name
 	 *

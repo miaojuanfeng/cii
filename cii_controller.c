@@ -21,6 +21,7 @@ ZEND_END_ARG_INFO ()
 * public function __construct()
 */
 PHP_METHOD(cii_controller, __construct){
+
 	/*
 	* init instance
 	*/
@@ -34,6 +35,7 @@ PHP_METHOD(cii_controller, __construct){
 	ulong idx;
 	zval **value;
 	zval **exist_object;
+	uint i = 1;
 	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos);
 		    zend_hash_has_more_elements_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos) == SUCCESS;
 		    zend_hash_move_forward_ex(Z_ARRVAL_P(CII_G(is_loaded)), &pos)){
@@ -46,7 +48,18 @@ PHP_METHOD(cii_controller, __construct){
 			if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), Z_STRVAL_PP(value), Z_STRLEN_PP(value)+1, (void**)&exist_object) == FAILURE ){
 				continue;
 			}
-			zend_update_property(cii_controller_ce, getThis(), key, key_len, *exist_object TSRMLS_CC);
+			switch(i){
+				case 1:
+					zend_update_property(cii_controller_ce, getThis(), "lang", 4, *exist_object TSRMLS_CC);
+					break;
+				case 2:
+					zend_update_property(cii_controller_ce, getThis(), "uri", 3, *exist_object TSRMLS_CC);
+					break;
+				case 3:
+					zend_update_property(cii_controller_ce, getThis(), "router", 6, *exist_object TSRMLS_CC);
+					break;	
+			}
+			i++;
 	}	    	
 	/*
 	* load cii_loader object
