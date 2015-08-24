@@ -4,10 +4,10 @@ zend_class_entry *cii_router_ce;
 
 PHP_METHOD(cii_router, __construct)
 {
-	zval *uri = load_class("URI", 0, NULL);
 	/*
 	*	add cii_uri object into cii_router
 	*/
+	zval *uri = load_class("URI", 0, NULL);
 	zend_update_property(cii_router_ce, getThis(), ZEND_STRL("uri"), uri TSRMLS_CC);
 	/*
 	*	update cii_uri::rsegments
@@ -41,15 +41,24 @@ PHP_METHOD(cii_router, __construct)
 	if( zend_hash_index_find(Z_ARRVAL_P(rsegments), 1, (void**)&class) == FAILURE ||
 		Z_TYPE_PP(class) == IS_STRING && Z_STRLEN_PP(class) == 0 ){
 		MAKE_STD_ZVAL(rsegments_class);
-		ZVAL_STRING(rsegments_class, "welcome", 1);
+		ZVAL_STRING(rsegments_class, "home", 1);
 		zend_hash_index_update(Z_ARRVAL_P(rsegments), 1, &rsegments_class, sizeof(zval *), NULL);
+	}else{
+		rsegments_class = *class;
 	}
 	if( zend_hash_index_find(Z_ARRVAL_P(rsegments), 2, (void**)&method) == FAILURE ||
 		Z_TYPE_PP(method) == IS_STRING && Z_STRLEN_PP(method) == 0 ){
 		MAKE_STD_ZVAL(rsegments_method);
 		ZVAL_STRING(rsegments_method, "index", 1);
 		zend_hash_index_update(Z_ARRVAL_P(rsegments), 2, &rsegments_method, sizeof(zval *), NULL);
+	}else{
+		rsegments_method = *method;
 	}
+	/*
+	*	update cii_router::class and update cii_router::method
+	*/
+	zend_update_property(cii_router_ce, getThis(), ZEND_STRL("class"), rsegments_class TSRMLS_CC);
+	zend_update_property(cii_router_ce, getThis(), ZEND_STRL("method"), rsegments_method TSRMLS_CC);
 	/*
 	*	output log
 	*/
@@ -76,11 +85,11 @@ PHP_MINIT_FUNCTION(cii_router)
 	 *
 	 * @var	string
 	 */
-	zend_declare_property_stringl(cii_router_ce, ZEND_STRL("class"), "home", 4, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(cii_router_ce, ZEND_STRL("class"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	/**
 	 * Current method name
 	 *
 	 * @var	string
 	 */
-	zend_declare_property_stringl(cii_router_ce, ZEND_STRL("method"), "index", 5, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(cii_router_ce, ZEND_STRL("method"), ZEND_ACC_PUBLIC TSRMLS_CC);
 }

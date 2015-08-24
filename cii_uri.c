@@ -36,7 +36,7 @@ PHP_METHOD(cii_uri, __construct)
     /*//debug
 	zval *query_temp;
     MAKE_STD_ZVAL(query_temp);
-    ZVAL_STRING(query_temp, "/home/getname/name/age/addr", 1);
+    ZVAL_STRING(query_temp, "/home/index/name/age/addr", 1);
     query = &query_temp;
     //debug*/
 
@@ -92,7 +92,6 @@ PHP_METHOD(cii_uri, __construct)
 					}
 					Z_ADDREF_PP(value);
 		    		zend_hash_index_update(Z_ARRVAL_P(segments),  i, value, sizeof(zval *), NULL);
-		    		//zend_hash_index_update(Z_ARRVAL_P(rsegments), i, value, sizeof(zval *), NULL);
 		    		i++;
 	    	}
 	    	zval_dtor(&zdelim);

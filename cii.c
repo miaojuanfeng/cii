@@ -401,7 +401,7 @@ PHP_FUNCTION(cii_run)
 		zval *cii_router_retval;
 		CII_CALL_USER_METHOD_EX(&cii_router_obj, "__construct", &cii_router_retval, 0, NULL);
 		zval_ptr_dtor(&cii_router_retval);
-	}	
+	}
 	is_loaded("Router");
 	/*
 	* load CII_Config object
@@ -414,8 +414,21 @@ PHP_FUNCTION(cii_run)
 		zval *cii_config_retval;
 		CII_CALL_USER_METHOD_EX(&cii_config_obj, "__construct", &cii_config_retval, 0, NULL);
 		zval_ptr_dtor(&cii_config_retval);
-	}	
+	}
 	is_loaded("Config");
+	/*
+	* load CII_Loader object
+	*/
+	zval *cii_loader_obj;
+	MAKE_STD_ZVAL(cii_loader_obj);
+	object_init_ex(cii_loader_obj, cii_loader_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Loader", 7, &cii_loader_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_loader_ce->function_table, "__construct", 12)) {
+		zval *cii_loader_retval;
+		CII_CALL_USER_METHOD_EX(&cii_loader_obj, "__construct", &cii_loader_retval, 0, NULL);
+		zval_ptr_dtor(&cii_loader_retval);
+	}
+	is_loaded("Loader");
 	/*
 	* load is_loaded objects
 	*/
@@ -475,28 +488,54 @@ PHP_FUNCTION(cii_run)
 				*/
 				switch(i){
 					case 1:
-						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "lang", 4, 1 TSRMLS_CC)) == IS_NULL ){
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "lang", 5) ){
 							zend_update_property(*run_class_ce, run_obj, "lang", 4, *exist_object TSRMLS_CC);
 						}
 						break;
 					case 2:
-						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "uri", 3, 1 TSRMLS_CC)) == IS_NULL ){
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "uri", 4) ){
 							zend_update_property(*run_class_ce, run_obj, "uri", 3, *exist_object TSRMLS_CC);
 						}
 						break;
 					case 3:
-						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "router", 6, 1 TSRMLS_CC)) == IS_NULL ){
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "router", 7) ){
 							zend_update_property(*run_class_ce, run_obj, "router", 6, *exist_object TSRMLS_CC);
 						}
 						break;
 					case 4:
-						if( Z_TYPE_P(zend_read_property(*run_class_ce, run_obj, "config", 6, 1 TSRMLS_CC)) == IS_NULL ){
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "config", 7) ){
 							zend_update_property(*run_class_ce, run_obj, "config", 6, *exist_object TSRMLS_CC);
 						}
 						break;
+					case 5:
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "load", 5) ){
+							zend_update_property(*run_class_ce, run_obj, "load", 4, *exist_object TSRMLS_CC);
+						}
+						break;	
 				}
 				i++;
 		}
+		/*
+		* call run_obj's __construct method
+		*/
+		if ( zend_hash_exists(&(*run_class_ce)->function_table, "__construct", 12) ){
+			zval *run_class_retval;
+			CII_CALL_USER_METHOD_EX(&run_obj, "__construct", &run_class_retval, 0, NULL);
+			zval_ptr_dtor(&run_class_retval);
+		}
+		/*
+		* call run_obj's method
+		*/
+		if ( zend_hash_exists(&(*run_class_ce)->function_table, Z_STRVAL_P(call_method), Z_STRLEN_P(call_method)+1) ){
+			zval *run_method_retval;
+			CII_CALL_USER_METHOD_EX(&run_obj, Z_STRVAL_P(call_method), &run_method_retval, 0, NULL);
+			zval_ptr_dtor(&run_method_retval);
+		}else{
+			php_printf("method not exist: %s\n", Z_STRVAL_P(call_method));
+		}
+		/*
+		*	return
+		*/
 		RETVAL_ZVAL(run_obj, 1, 0);
 		zval_ptr_dtor(&run_obj);
 		return;
