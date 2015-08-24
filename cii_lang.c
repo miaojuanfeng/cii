@@ -74,11 +74,26 @@ PHP_METHOD(cii_lang, load)
 			}
 			need_free_idiom = 1;
 		}
+;
+		char *new_langfile = langfile;
+		uint new_langfile_len = file_len;
+		if(new_langfile_len > 5){
+			if( strcmp(&new_langfile[new_langfile_len-5], "_lang") ){
+				new_langfile_len = spprintf(&new_langfile, 0, "%s%s", new_langfile, "_lang.php");
+			}else{
+				new_langfile_len = spprintf(&new_langfile, 0, "%s%s", new_langfile, ".php");
+			}
+		}else{
+			new_langfile_len = spprintf(&new_langfile, 0, "%s%s", new_langfile, "_lang.php");
+		}
+		langfile = new_langfile;
+		file_len = new_langfile_len;
 
-		len = spprintf(&file, 0, "%s%s%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "language/", idiom, "/", langfile, ".php");
+		len = spprintf(&file, 0, "%s%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "language/", idiom, "/", langfile);
 
 		if (zend_hash_exists(&EG(included_files), file, len+1)) {
 			efree(file);
+			efree(new_langfile);
 			RETURN_TRUE;
 		}
 
@@ -88,7 +103,7 @@ PHP_METHOD(cii_lang, load)
 			zval **lang;
 
 			if( zend_hash_find(EG(active_symbol_table), "lang", 5, (void**)&lang) == FAILURE ){
-				php_error(E_WARNING, "Language file contains no data: language/%s/%s.php", idiom, langfile);
+				php_error(E_WARNING, "Language file contains no data: language/%s/%s", idiom, langfile);
 			}
 
 			zval *z_idiom;
@@ -104,6 +119,7 @@ PHP_METHOD(cii_lang, load)
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 
 		efree(file);
+		efree(new_langfile);
 		if(need_free_idiom){
 			efree(idiom);
 		}
@@ -133,6 +149,7 @@ PHP_METHOD(cii_lang, line)
 	language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
 	if( zend_hash_find(Z_ARRVAL_P(language), line, line_len+1, (void**)&value) == FAILURE ){
 		php_error(E_WARNING, "Could not find the language line %s", line);
+		return;
 	}
 	RETURN_ZVAL(*value, 1, 0);
 }
@@ -148,7 +165,6 @@ PHP_MINIT_FUNCTION(cii_lang){
 	zend_class_entry ce;
 	INIT_CLASS_ENTRY(ce,"CII_Lang",cii_lang_methods);
 	cii_lang_ce = zend_register_internal_class(&ce TSRMLS_CC);
-
 	/**
 	 * List of translations
 	 *
