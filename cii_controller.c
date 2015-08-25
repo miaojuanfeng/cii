@@ -21,7 +21,6 @@ ZEND_END_ARG_INFO ()
 * public function __construct()
 */
 PHP_METHOD(cii_controller, __construct){
-
 	/*
 	* init instance
 	*/

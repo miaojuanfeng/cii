@@ -74,7 +74,7 @@ PHP_METHOD(cii_lang, load)
 			}
 			need_free_idiom = 1;
 		}
-;
+
 		char *new_langfile = langfile;
 		uint new_langfile_len = file_len;
 		if(new_langfile_len > 5){
@@ -148,7 +148,7 @@ PHP_METHOD(cii_lang, line)
 	}
 	language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
 	if( zend_hash_find(Z_ARRVAL_P(language), line, line_len+1, (void**)&value) == FAILURE ){
-		php_error(E_WARNING, "Could not find the language line %s", line);
+		php_error(E_NOTICE, "Could not find the language line %s", line);
 		return;
 	}
 	RETURN_ZVAL(*value, 1, 0);
@@ -163,7 +163,7 @@ zend_function_entry cii_lang_methods[] = {
 
 PHP_MINIT_FUNCTION(cii_lang){
 	zend_class_entry ce;
-	INIT_CLASS_ENTRY(ce,"CII_Lang",cii_lang_methods);
+	INIT_CLASS_ENTRY(ce, "CII_Lang", cii_lang_methods);
 	cii_lang_ce = zend_register_internal_class(&ce TSRMLS_CC);
 	/**
 	 * List of translations

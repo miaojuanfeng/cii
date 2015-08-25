@@ -40,9 +40,16 @@ extern zend_module_entry cii_module_entry;
 
 
 ZEND_BEGIN_MODULE_GLOBALS(cii)
+  /*
+  *   global object
+  */
+  zval *cii;
   zval *classes;
   zval *is_loaded;
 	zval *config;
+  /*
+  *   global path
+  */
   zval *apppath;
 ZEND_END_MODULE_GLOBALS(cii)
 
