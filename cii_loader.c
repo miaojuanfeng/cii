@@ -8,6 +8,9 @@ zend_class_entry *cii_loader_ce;
 	ZEND_ARG_ARRAY_INFO(0,data,1)
 	ZEND_ARG_INFO(0,return)
 ZEND_END_ARG_INFO()*/
+ZEND_BEGIN_ARG_INFO_EX(cii_model___get_arginfo, 0, 0, 1)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
 
 #define CII_STORE_EG_ENVIRON() \
 	{ \
@@ -20,6 +23,17 @@ ZEND_END_ARG_INFO()*/
 		EG(opline_ptr)			 = __old_opline_ptr; \
 		EG(active_op_array)		 = __old_op_array; \
 	}
+
+PHP_FUNCTION(cii_model___get)
+{
+	char *key;
+	uint key_len;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s" ,&key, &key_len) == FAILURE) {
+		return;
+	}
+	zval *value = zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), key, key_len, 1 TSRMLS_CC);
+	RETURN_ZVAL(value, 1, 0);
+}	
 
 
 ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
@@ -200,7 +214,7 @@ PHP_METHOD(cii_loader, model){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
-	file_len = spprintf(&file, 0, "%s%s%s", "/usr/local/nginx/html/cii/models/", model, ".php");
+	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "models/", model, ".php");
 
 	if (zend_hash_exists(&EG(included_files), file, file_len + 1)){
 		efree(file);
@@ -215,33 +229,61 @@ PHP_METHOD(cii_loader, model){
 
 	//add new object property to cii_controller class
 	zend_class_entry **ce;
-	if(zend_hash_find(CG(class_table), model, model_len+1, (void**)&ce)==SUCCESS){
+	if( zend_hash_find(CG(class_table), model, model_len+1, (void**)&ce) == SUCCESS ){
 		if(name){
-			if( Z_TYPE_P(zend_read_property(cii_controller_ce, GET_CII_CONTROLLER_INSTANCE(), name, name_len, 1 TSRMLS_CC)) != IS_NULL ){
+			if( Z_TYPE_P(zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, 1 TSRMLS_CC)) != IS_NULL ){
 				php_error(E_ERROR, "The model name you are loading is the name of a resource that is already being used: %s", name);
 			}
 		}else{
 			name = model;
 			name_len = model_len;
 		}
-		//add new object to cii_controller
+		/*
+		*	add new object to cii_controller
+		*/
 		zval *new_object;
 		MAKE_STD_ZVAL(new_object);
 		object_init_ex(new_object, *ce);
-		zend_update_property(cii_controller_ce, GET_CII_CONTROLLER_INSTANCE(), name, name_len, new_object TSRMLS_CC);
+		zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, new_object TSRMLS_CC);
 		zval_ptr_dtor(&new_object);
-		//add new model to cii_loader::_models
+		/*
+		*	add new model to cii_loader::_models
+		*/
 		zval *model_name;
 		MAKE_STD_ZVAL(model_name);
 		ZVAL_STRING(model_name, name, 1);
 		zval *_models = zend_read_property(cii_loader_ce, getThis(), ZEND_STRL("_models"), 1 TSRMLS_CC);
 		zend_hash_next_index_insert(Z_ARRVAL_P(_models), &model_name, sizeof(zval *), NULL);
-		//call new object construct function
-		zval *retval;
-		CII_CALL_USER_FUNCTION_EX(NULL, &new_object, "__construct", &retval, 0, NULL);
-		zval_ptr_dtor(&retval);
+		/*
+		*	add __get method
+		*/
+		if( !zend_hash_exists(&(*ce)->function_table, "__get", 6) ){
+			zend_function *func_pDest;
+			zend_function func;
+			func.internal_function.type = ZEND_INTERNAL_FUNCTION;
+			func.internal_function.function_name = "__get";
+			func.internal_function.scope = *ce;
+			func.internal_function.fn_flags = ZEND_ACC_PUBLIC;
+			func.internal_function.num_args = 0;
+			func.internal_function.required_num_args = 0;
+			func.internal_function.arg_info = (zend_arg_info*)cii_model___get_arginfo+1;
+			func.internal_function.handler = ZEND_FN(cii_model___get);
+			if( zend_hash_add(&(*ce)->function_table, "__get", 6, &func, sizeof(zend_function), (void**)&func_pDest) == FAILURE ){
+				php_error(E_WARNING, "add __get method failed");
+			}else{
+				(*ce)->__get = func_pDest;
+				(*ce)->__get->common.fn_flags &= ~ZEND_ACC_ALLOW_STATIC;
+			}
+		}
+		/*
+		*	call new object construct function
+		*/
+		if (zend_hash_exists(&(*ce)->function_table, "__construct", 12)) {
+			zval *retval;
+			CII_CALL_USER_METHOD_EX(&new_object, "__construct", &retval, 0, NULL);
+			zval_ptr_dtor(&retval);
+		}
 	}
-
 	efree(file);
 	RETURN_ZVAL(getThis(), 1, 0);
 }
@@ -374,7 +416,7 @@ PHP_METHOD(cii_loader, database){
 	zval *db_obj;
 	MAKE_STD_ZVAL(db_obj);
 	object_init_ex(db_obj, *mysqli_ce);
-	zend_update_property(cii_controller_ce, GET_CII_CONTROLLER_INSTANCE(), ZEND_STRL("db"), db_obj TSRMLS_CC);
+	zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), ZEND_STRL("db"), db_obj TSRMLS_CC);
 	zval_ptr_dtor(&db_obj);
 
 	zval *func_name;

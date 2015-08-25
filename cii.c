@@ -26,10 +26,7 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_cii.h"
-#include "cii_controller.c"
-#include "cii_model.c"
 #include "cii_loader.c"
-#include "cii_helper.c"
 #include "cii_lang.c"
 #include "cii_config.c"
 #include "cii_uri.c" 
@@ -66,7 +63,7 @@ static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 
 static void php_cii_globals_dtor(zend_cii_globals *cii_globals)
 {
-	zval_ptr_dtor(&cii_globals->cii);
+	zval_ptr_dtor(&cii_globals->cii_controller);
 	zval_ptr_dtor(&cii_globals->classes);
 	zval_ptr_dtor(&cii_globals->config);
 	zval_ptr_dtor(&cii_globals->is_loaded);
@@ -79,8 +76,6 @@ PHP_MINIT_FUNCTION(cii)
 	/* If you have INI entries, uncomment these lines 
 	REGISTER_INI_ENTRIES();
 	*/
-	ZEND_MINIT(cii_controller)(INIT_FUNC_ARGS_PASSTHRU);
-	ZEND_MINIT(cii_model)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_loader)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_lang)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_config)(INIT_FUNC_ARGS_PASSTHRU);
@@ -144,7 +139,7 @@ ZEND_END_ARG_INFO()
 PHP_FUNCTION(cii_get_instance)
 {
 	zval_ptr_dtor(return_value_ptr);
-	(*return_value_ptr) = CII_G(cii);
+	(*return_value_ptr) = CII_G(cii_controller);
 	Z_ADDREF_P(*return_value_ptr);
 }
 /**
@@ -521,6 +516,28 @@ PHP_FUNCTION(cii_run)
 				i++;
 		}
 		/*
+		*	add get_instance method
+		*/
+		if( !zend_hash_exists(&(*run_class_ce)->function_table, "get_instance", 13) ){
+			zend_function func;
+			func.internal_function.type = ZEND_INTERNAL_FUNCTION;
+			func.internal_function.function_name = "get_instance";
+			func.internal_function.scope = *run_class_ce;
+			func.internal_function.fn_flags = ZEND_ACC_PUBLIC | ZEND_ACC_RETURN_REFERENCE;
+			func.internal_function.num_args = 0;
+			func.internal_function.required_num_args = 0;
+			func.internal_function.arg_info = (zend_arg_info*)cii_get_instance_arginfo+1;
+			func.internal_function.handler = ZEND_FN(cii_get_instance);
+			if( zend_hash_add(&(*run_class_ce)->function_table, "get_instance", 13, &func, sizeof(zend_function), NULL) == FAILURE ){
+				php_error(E_WARNING, "add get_instance method failed");
+			}
+		}
+		/*
+		*	add to global cii_controller and cii_controller_ce
+		*/
+		CII_G(cii_controller) = run_obj;
+		CII_G(cii_controller_ce) = *run_class_ce;
+		/*
 		* call run_obj's __construct method
 		*/
 		if ( zend_hash_exists(&(*run_class_ce)->function_table, "__construct", 12) ){
@@ -539,27 +556,6 @@ PHP_FUNCTION(cii_run)
 			php_error(E_WARNING, "method does not exist: %s\n", Z_STRVAL_P(call_method));
 		}
 		/*
-		*	add get_instance method
-		*/
-		if( !zend_hash_exists(&(*run_class_ce)->function_table, "get_instance", 13) ){
-			zend_function func;
-			func.internal_function.type = ZEND_INTERNAL_FUNCTION;
-			func.internal_function.function_name = "get_instance";
-			func.internal_function.scope = *run_class_ce;
-			func.internal_function.fn_flags = ZEND_ACC_PUBLIC | ZEND_ACC_RETURN_REFERENCE;
-			func.internal_function.num_args = 0;
-			func.internal_function.required_num_args = 0;
-			func.internal_function.arg_info = (zend_arg_info*)cii_get_instance_arginfo+1;
-			func.internal_function.handler = ZEND_FN(cii_get_instance);
-			if( zend_hash_add(&(*run_class_ce)->function_table, "get_instance", 13, &func, sizeof(zend_function), NULL) == FAILURE ){
-				php_error(E_WARNING, "add get_instance method failed");
-			}
-		}	
-		/*
-		*	add to global cii
-		*/
-		CII_G(cii) = run_obj;
-		/*
 		*	return
 		*/
 		RETURN_ZVAL(run_obj, 1, 0);
@@ -573,7 +569,6 @@ const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_is_https, NULL)
 	PHP_FE(cii_load_class, cii_load_class_arginfo)
 	PHP_FE(cii_is_loaded, cii_is_loaded_arginfo)
-	CII_HELPER_FUNCTION
 	PHP_FE_END
 };
 

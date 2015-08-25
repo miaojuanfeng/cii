@@ -43,7 +43,8 @@ ZEND_BEGIN_MODULE_GLOBALS(cii)
   /*
   *   global object
   */
-  zval *cii;
+  zend_class_entry *cii_controller_ce;
+  zval *cii_controller;
   zval *classes;
   zval *is_loaded;
 	zval *config;
