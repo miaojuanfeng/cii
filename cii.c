@@ -31,6 +31,7 @@
 #include "cii_config.c"
 #include "cii_uri.c" 
 #include "cii_router.c"
+#include "cii_benchmark.c"
 
 
 
@@ -81,6 +82,7 @@ PHP_MINIT_FUNCTION(cii)
 	ZEND_MINIT(cii_config)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_uri)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_router)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_benchmark)(INIT_FUNC_ARGS_PASSTHRU);
 	return SUCCESS;
 }
 
@@ -365,6 +367,19 @@ PHP_FUNCTION(cii_run)
 	//Z_ADDREF_P(CII_G(apppath));
 	zend_hash_update(EG(zend_constants), "BASEPATH", 9, CII_G(apppath), sizeof(zval *), NULL);
 	/*
+	* load CII_Benchmark object
+	*/
+	zval *cii_benchmark_obj;
+	MAKE_STD_ZVAL(cii_benchmark_obj);
+	object_init_ex(cii_benchmark_obj, cii_benchmark_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Benchmark", 10, &cii_benchmark_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_benchmark_ce->function_table, "__construct", 12)) {
+		zval *cii_benchmark_retval;
+		CII_CALL_USER_METHOD_EX(&cii_benchmark_obj, "__construct", &cii_benchmark_retval, 0, NULL);
+		zval_ptr_dtor(&cii_benchmark_retval);
+	}	
+	is_loaded("Benchmark");
+	/*
 	* load CII_Lang object
 	*/
 	zval *cii_lang_obj;
@@ -488,26 +503,31 @@ PHP_FUNCTION(cii_run)
 				*/
 				switch(i){
 					case 1:
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "benchmark", 10) ){
+							zend_update_property(*run_class_ce, run_obj, "benchmark", 9, *exist_object TSRMLS_CC);
+						}
+						break;
+					case 2:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "lang", 5) ){
 							zend_update_property(*run_class_ce, run_obj, "lang", 4, *exist_object TSRMLS_CC);
 						}
 						break;
-					case 2:
+					case 3:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "uri", 4) ){
 							zend_update_property(*run_class_ce, run_obj, "uri", 3, *exist_object TSRMLS_CC);
 						}
 						break;
-					case 3:
+					case 4:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "router", 7) ){
 							zend_update_property(*run_class_ce, run_obj, "router", 6, *exist_object TSRMLS_CC);
 						}
 						break;
-					case 4:
+					case 5:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "config", 7) ){
 							zend_update_property(*run_class_ce, run_obj, "config", 6, *exist_object TSRMLS_CC);
 						}
 						break;
-					case 5:
+					case 6:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "load", 5) ){
 							zend_update_property(*run_class_ce, run_obj, "load", 4, *exist_object TSRMLS_CC);
 						}
@@ -537,6 +557,10 @@ PHP_FUNCTION(cii_run)
 		*/
 		CII_G(cii_controller) = run_obj;
 		CII_G(cii_controller_ce) = *run_class_ce;
+		/*
+		*	cii_controller __construct function
+		*/
+		php_printf("Info: Controller Class Initialized\n");
 		/*
 		* call run_obj's __construct method
 		*/

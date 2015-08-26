@@ -276,6 +276,10 @@ PHP_METHOD(cii_loader, model){
 			}
 		}
 		/*
+		*	cii_model __construct function
+		*/
+		php_printf("Info: Model Class Initialized\n");
+		/*
 		*	call new object construct function
 		*/
 		if (zend_hash_exists(&(*ce)->function_table, "__construct", 12)) {
