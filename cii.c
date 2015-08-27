@@ -64,11 +64,11 @@ static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 
 static void php_cii_globals_dtor(zend_cii_globals *cii_globals)
 {
-	zval_ptr_dtor(&cii_globals->cii_controller);
-	zval_ptr_dtor(&cii_globals->classes);
-	zval_ptr_dtor(&cii_globals->config);
-	zval_ptr_dtor(&cii_globals->is_loaded);
-	zval_ptr_dtor(&cii_globals->apppath);
+	if( cii_globals->cii_controller ) zval_ptr_dtor(&cii_globals->cii_controller);
+	if( cii_globals->classes ) zval_ptr_dtor(&cii_globals->classes);
+	if( cii_globals->config ) zval_ptr_dtor(&cii_globals->config);
+	if( cii_globals->is_loaded ) zval_ptr_dtor(&cii_globals->is_loaded);
+	if( cii_globals->apppath ) zval_ptr_dtor(&cii_globals->apppath);
 }
 
 PHP_MINIT_FUNCTION(cii)
@@ -140,9 +140,11 @@ ZEND_END_ARG_INFO()
 */
 PHP_FUNCTION(cii_get_instance)
 {
-	zval_ptr_dtor(return_value_ptr);
-	(*return_value_ptr) = CII_G(cii_controller);
-	Z_ADDREF_P(*return_value_ptr);
+	if( return_value_used ){
+		zval_ptr_dtor(return_value_ptr);
+		(*return_value_ptr) = CII_G(cii_controller);
+		Z_ADDREF_P(*return_value_ptr);
+	}
 }
 /**
 * Loads the main config.php file
@@ -228,7 +230,7 @@ ZEND_API zval* is_loaded(char *class){
 		MAKE_STD_ZVAL(zclass);
 		ZVAL_STRING(zclass, class, 1);
 
-		lower_class = zend_str_tolower_dup(class, sizeof(class));
+		lower_class = zend_str_tolower_dup(class, strlen(class));
 		zend_hash_update(Z_ARRVAL_P(CII_G(is_loaded)), lower_class, strlen(lower_class)+1, &zclass, sizeof(zval *), NULL);
 
 		efree(lower_class);
@@ -250,12 +252,9 @@ ZEND_API zval* load_class(char *class, uint param_count, zval **params[])
 	zend_class_entry **class_ce;
 	zval *class_obj;
 	MAKE_STD_ZVAL(class_obj);
-	lower_class = zend_str_tolower_dup(class, sizeof(class));
-	//php_printf("class: %s\n", lower_class);
+	lower_class = zend_str_tolower_dup(class, strlen(class));
 
 	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "libraries/", class, ".php");
-
-	//php_printf("file: %s\n", file);
 
 	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
