@@ -1,4 +1,14 @@
 #include "cii_benchmark.h"
+#ifdef PHP_WIN32
+	#include "win32/time.h"
+#elif defined(NETWARE)
+	#include <sys/timeval.h>
+	#include <sys/time.h>
+#else
+	#include <sys/time.h>
+#endif
+
+#define MICRO_IN_SEC 1000000.00
 
 zend_class_entry *cii_benchmark_ce;
 
@@ -17,6 +27,14 @@ PHP_METHOD(cii_benchmark, __construct)
 	*/
 	php_printf("Info: Benchmark Class Initialized\n");
 }
+
+static double cii_microtime(){
+	struct timeval tp = {0};
+	if( gettimeofday(&tp, NULL) ){
+		return 0;
+	}
+	return (double)(tp.tv_sec + tp.tv_usec / MICRO_IN_SEC);
+}
 /**
 * 	Set a benchmark marker
 *
@@ -34,21 +52,15 @@ PHP_METHOD(cii_benchmark, mark)
 	uint name_len;
 
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name, &name_len) == FAILURE ){
-		return;
+		RETURN_FALSE;
 	}
+	
+	zval *microtime;
+	MAKE_STD_ZVAL(microtime);
+	ZVAL_DOUBLE(microtime, cii_microtime());
 
 	zval *marker = zend_read_property(cii_benchmark_ce, getThis(), ZEND_STRL("marker"), 1 TSRMLS_CC);
-
-	zval *microtime_retval;
-	zval *microtime_para1;
-	zval **microtime_paras[1];
-	MAKE_STD_ZVAL(microtime_para1);
-	ZVAL_BOOL(microtime_para1, 1);
-	microtime_paras[0] = &microtime_para1;
-	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "microtime", &microtime_retval, 1, microtime_paras);
-	zval_ptr_dtor(&microtime_para1);
-
-	zend_hash_update(Z_ARRVAL_P(marker), name, name_len+1, &microtime_retval, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(marker), name, name_len+1, &microtime, sizeof(zval*), NULL);
 }
 
 zend_function_entry cii_benchmark_methods[] = {

@@ -379,7 +379,21 @@ PHP_FUNCTION(cii_run)
 	}	
 	is_loaded("Benchmark");
 	/*
-	* load CII_Lang object
+	*	Start the timer... tick tock tick tock...
+	*/
+	zval *marker = zend_read_property(cii_benchmark_ce, cii_benchmark_obj, ZEND_STRL("marker"), 1 TSRMLS_CC);
+
+	zval *total_execution_time_start;
+	MAKE_STD_ZVAL(total_execution_time_start);
+	ZVAL_DOUBLE(total_execution_time_start, cii_microtime());
+	zend_hash_update(Z_ARRVAL_P(marker), "total_execution_time_start", 27, &total_execution_time_start, sizeof(zval*), NULL);
+
+	zval *loading_time_base_classes_start;
+	MAKE_STD_ZVAL(loading_time_base_classes_start);
+	ZVAL_DOUBLE(loading_time_base_classes_start, cii_microtime());
+	zend_hash_update(Z_ARRVAL_P(marker), "loading_time:_base_classes_start", 33, &loading_time_base_classes_start, sizeof(zval*), NULL);
+	/*
+	* 	load CII_Lang object
 	*/
 	zval *cii_lang_obj;
 	MAKE_STD_ZVAL(cii_lang_obj);
@@ -443,6 +457,13 @@ PHP_FUNCTION(cii_run)
 		zval_ptr_dtor(&cii_loader_retval);
 	}
 	is_loaded("Loader");
+	/*
+	*	Set a mark point for benchmarking
+	*/
+	zval *loading_time_base_classes_end;
+	MAKE_STD_ZVAL(loading_time_base_classes_end);
+	ZVAL_DOUBLE(loading_time_base_classes_end, cii_microtime());
+	zend_hash_update(Z_ARRVAL_P(marker), "loading_time:_base_classes_end", 31, &loading_time_base_classes_end, sizeof(zval*), NULL);
 	/*
 	* load is_loaded objects
 	*/
@@ -561,7 +582,21 @@ PHP_FUNCTION(cii_run)
 		*/
 		php_printf("Info: Controller Class Initialized\n");
 		/*
-		* call run_obj's __construct method
+		*	Mark a start point so we can benchmark the controller
+		*/
+		char *mark_name_start;
+		uint mark_start_len;
+
+		mark_start_len = spprintf(&mark_name_start, 0, "%s%s%s%s%s", "controller_execution_time_( ", Z_STRVAL_P(call_class), " / ", Z_STRVAL_P(call_method), " )_start");
+
+		zval *controller_execution_time_start;
+		MAKE_STD_ZVAL(controller_execution_time_start);
+		ZVAL_DOUBLE(controller_execution_time_start, cii_microtime());
+		zend_hash_update(Z_ARRVAL_P(marker), mark_name_start, mark_start_len+1, &controller_execution_time_start, sizeof(zval*), NULL);
+
+		efree(mark_name_start);
+		/*
+		* 	call run_obj's __construct method
 		*/
 		if ( zend_hash_exists(&(*run_class_ce)->function_table, "__construct", 12) ){
 			zval *run_class_retval;
@@ -569,7 +604,7 @@ PHP_FUNCTION(cii_run)
 			zval_ptr_dtor(&run_class_retval);
 		}
 		/*
-		* call run_obj's method
+		* 	call run_obj's method
 		*/
 		if ( zend_hash_exists(&(*run_class_ce)->function_table, Z_STRVAL_P(call_method), Z_STRLEN_P(call_method)+1) ){
 			zval *run_method_retval;
@@ -579,9 +614,19 @@ PHP_FUNCTION(cii_run)
 			php_error(E_WARNING, "method does not exist: %s\n", Z_STRVAL_P(call_method));
 		}
 		/*
-		*	return
+		*	Mark a benchmark end point
 		*/
-		RETURN_ZVAL(run_obj, 1, 0);
+		char *mark_name_end;
+		uint mark_end_len;
+
+		mark_end_len = spprintf(&mark_name_end, 0, "%s%s%s%s%s", "controller_execution_time_( ", Z_STRVAL_P(call_class), " / ", Z_STRVAL_P(call_method), " )_end");
+
+		zval *controller_execution_time_end;
+		MAKE_STD_ZVAL(controller_execution_time_end);
+		ZVAL_DOUBLE(controller_execution_time_end, cii_microtime());
+		zend_hash_update(Z_ARRVAL_P(marker), mark_name_end, mark_end_len+1, &controller_execution_time_end, sizeof(zval*), NULL);
+
+		efree(mark_name_end);
 	}
 }
 
