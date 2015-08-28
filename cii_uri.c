@@ -36,7 +36,7 @@ PHP_METHOD(cii_uri, __construct)
     /*//debug
 	zval *query_temp;
     MAKE_STD_ZVAL(query_temp);
-    ZVAL_STRING(query_temp, "/home/index/name/age/addr", 1);
+    ZVAL_STRING(query_temp, "/welcome/index", 1);
     query = &query_temp;
     //debug*/
 

@@ -628,6 +628,13 @@ PHP_FUNCTION(cii_run)
 
 		efree(mark_name_end);
 	}
+	/*
+	*	mark total_execution_time_end benchmark
+	*/
+	zval *total_execution_time_end;
+	MAKE_STD_ZVAL(total_execution_time_end);
+	ZVAL_DOUBLE(total_execution_time_end, cii_microtime());
+	zend_hash_update(Z_ARRVAL_P(marker), "total_execution_time_end", 25, &total_execution_time_end, sizeof(zval*), NULL);
 }
 
 const zend_function_entry cii_functions[] = {

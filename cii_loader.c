@@ -42,7 +42,7 @@ ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 	char realpath[MAXPATHLEN];
 
 	if (!VCWD_REALPATH(path, realpath)) {
-		php_error(E_WARNING, "Unable to load the requested file: %s", path);
+		php_error(E_ERROR, "Unable to load the requested file: %s", path);
 	}
 
 	file_handle.filename = path;
