@@ -32,7 +32,7 @@
 #include "cii_uri.c" 
 #include "cii_router.c"
 #include "cii_benchmark.c"
-
+#include "cii_hooks.c" 
 
 
 ZEND_DECLARE_MODULE_GLOBALS(cii)
@@ -64,16 +64,17 @@ static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 
 static void php_cii_globals_dtor(zend_cii_globals *cii_globals)
 {
-	if( cii_globals->cii_controller ) zval_ptr_dtor(&cii_globals->cii_controller);
+	/*if( cii_globals->cii_controller ) zval_ptr_dtor(&cii_globals->cii_controller);
 	if( cii_globals->classes ) zval_ptr_dtor(&cii_globals->classes);
-	if( cii_globals->config ) zval_ptr_dtor(&cii_globals->config);
+	if( cii_globals->config ) zval_ptr_dtor(&cii_globals->config);  //when free segment show
 	if( cii_globals->is_loaded ) zval_ptr_dtor(&cii_globals->is_loaded);
-	if( cii_globals->apppath ) zval_ptr_dtor(&cii_globals->apppath);
+	if( cii_globals->apppath ) zval_ptr_dtor(&cii_globals->apppath);*/
 }
 
 PHP_MINIT_FUNCTION(cii)
 {
-	ZEND_INIT_MODULE_GLOBALS(cii, php_cii_globals_ctor, php_cii_globals_dtor);
+	//ZEND_INIT_MODULE_GLOBALS(cii, php_cii_globals_ctor, php_cii_globals_dtor);
+	ZEND_INIT_MODULE_GLOBALS(cii, php_cii_globals_ctor, NULL);
 	/* If you have INI entries, uncomment these lines 
 	REGISTER_INI_ENTRIES();
 	*/
@@ -83,6 +84,7 @@ PHP_MINIT_FUNCTION(cii)
 	ZEND_MINIT(cii_uri)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_router)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_benchmark)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_hooks)(INIT_FUNC_ARGS_PASSTHRU);
 	return SUCCESS;
 }
 
@@ -101,9 +103,9 @@ PHP_RINIT_FUNCTION(cii)
 
 PHP_RSHUTDOWN_FUNCTION(cii)
 {
-#ifndef ZTS
+/*#ifndef ZTS
 	php_cii_globals_dtor(&cii_globals);
-#endif	
+#endif*/
 	return SUCCESS;
 }
 
@@ -140,11 +142,38 @@ ZEND_END_ARG_INFO()
 */
 PHP_FUNCTION(cii_get_instance)
 {
-	if( return_value_used ){
+	if( return_value_used && CII_G(cii_controller) ){
 		zval_ptr_dtor(return_value_ptr);
 		(*return_value_ptr) = CII_G(cii_controller);
 		Z_ADDREF_P(*return_value_ptr);
 	}
+}
+/*
+*
+*/
+static zval* cii_get_config()
+{
+	if( !(Z_ARRVAL_P(CII_G(config))->nNumOfElements) ){
+		zval **cfg;
+		char *file;
+		uint file_len = spprintf(&file, 0, "%s%s", Z_STRVAL_P(CII_G(apppath)), "configs/config.php");
+
+		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
+		cii_loader_import(file, file_len, 0 TSRMLS_CC);
+
+		if( zend_hash_find(EG(active_symbol_table), "config", 7, (void**)&cfg) == FAILURE || 
+			Z_TYPE_PP(cfg) != IS_ARRAY ){
+			php_error(E_WARNING, "Your config file does not appear to be formatted correctly.");	
+		}
+
+		*CII_G(config) = **cfg;
+		zval_copy_ctor(CII_G(config));	
+
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		efree(file);
+	}
+	return CII_G(config);
 }
 /**
 * Loads the main config.php file
@@ -165,28 +194,9 @@ PHP_FUNCTION(cii_get_config)
 		WRONG_PARAM_COUNT;
 	}
 
-	if(!(Z_ARRVAL_P(CII_G(config))->nNumOfElements)){
-		zval **cfg;
-		char *file;
-		uint file_len = spprintf(&file, 0, "%s", "/usr/local/nginx/html/cii/configs/config.php");
+	cii_get_config();
 
-		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
-
-		cii_loader_import(file, file_len, 0 TSRMLS_CC);
-
-		if( zend_hash_find(EG(active_symbol_table), "config", 7, (void**)&cfg) == FAILURE || 
-			Z_TYPE_PP(cfg) != IS_ARRAY ){
-			php_error(E_WARNING, "Your config file does not appear to be formatted correctly.");	
-		}
-
-		*CII_G(config) = **cfg;
-		zval_copy_ctor(CII_G(config));	
-
-		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-		efree(file);
-	}
-
-	if(replace){
+	if( replace ){
 		HashPosition pos;
 		char *key;
 		uint key_len;
@@ -213,7 +223,7 @@ PHP_FUNCTION(cii_get_config)
 			}
 		}   	
 	}
-
+	
 	if(return_value_used){
 		zval_ptr_dtor(return_value_ptr);
 		(*return_value_ptr) = CII_G(config);
@@ -393,18 +403,31 @@ PHP_FUNCTION(cii_run)
 	ZVAL_DOUBLE(loading_time_base_classes_start, cii_microtime());
 	zend_hash_update(Z_ARRVAL_P(marker), "loading_time:_base_classes_start", 33, &loading_time_base_classes_start, sizeof(zval*), NULL);
 	/*
-	* 	load CII_Lang object
+	* load CII_Hooks object
 	*/
-	zval *cii_lang_obj;
-	MAKE_STD_ZVAL(cii_lang_obj);
-	object_init_ex(cii_lang_obj, cii_lang_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Lang", 5, &cii_lang_obj, sizeof(zval *), NULL);
-	if (zend_hash_exists(&cii_lang_ce->function_table, "__construct", 12)) {
-		zval *cii_lang_retval;
-		CII_CALL_USER_METHOD_EX(&cii_lang_obj, "__construct", &cii_lang_retval, 0, NULL);
-		zval_ptr_dtor(&cii_lang_retval);
+	zval *cii_hooks_obj;
+	MAKE_STD_ZVAL(cii_hooks_obj);
+	object_init_ex(cii_hooks_obj, cii_hooks_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Hooks", 6, &cii_hooks_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_hooks_ce->function_table, "__construct", 12)) {
+		zval *cii_hooks_retval;
+		CII_CALL_USER_METHOD_EX(&cii_hooks_obj, "__construct", &cii_hooks_retval, 0, NULL);
+		zval_ptr_dtor(&cii_hooks_retval);
 	}	
-	is_loaded("Lang");
+	is_loaded("Hooks");
+	/*
+	* load CII_Config object
+	*/
+	zval *cii_config_obj;
+	MAKE_STD_ZVAL(cii_config_obj);
+	object_init_ex(cii_config_obj, cii_config_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Config", 7, &cii_config_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_config_ce->function_table, "__construct", 12)) {
+		zval *cii_config_retval;
+		CII_CALL_USER_METHOD_EX(&cii_config_obj, "__construct", &cii_config_retval, 0, NULL);
+		zval_ptr_dtor(&cii_config_retval);
+	}
+	is_loaded("Config");
 	/*
 	* load CII_URI object
 	*/
@@ -432,18 +455,18 @@ PHP_FUNCTION(cii_run)
 	}
 	is_loaded("Router");
 	/*
-	* load CII_Config object
+	* 	load CII_Lang object
 	*/
-	zval *cii_config_obj;
-	MAKE_STD_ZVAL(cii_config_obj);
-	object_init_ex(cii_config_obj, cii_config_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Config", 7, &cii_config_obj, sizeof(zval *), NULL);
-	if (zend_hash_exists(&cii_config_ce->function_table, "__construct", 12)) {
-		zval *cii_config_retval;
-		CII_CALL_USER_METHOD_EX(&cii_config_obj, "__construct", &cii_config_retval, 0, NULL);
-		zval_ptr_dtor(&cii_config_retval);
-	}
-	is_loaded("Config");
+	zval *cii_lang_obj;
+	MAKE_STD_ZVAL(cii_lang_obj);
+	object_init_ex(cii_lang_obj, cii_lang_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Lang", 5, &cii_lang_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_lang_ce->function_table, "__construct", 12)) {
+		zval *cii_lang_retval;
+		CII_CALL_USER_METHOD_EX(&cii_lang_obj, "__construct", &cii_lang_retval, 0, NULL);
+		zval_ptr_dtor(&cii_lang_retval);
+	}	
+	is_loaded("Lang");
 	/*
 	* load CII_Loader object
 	*/
@@ -528,26 +551,31 @@ PHP_FUNCTION(cii_run)
 						}
 						break;
 					case 2:
-						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "lang", 5) ){
-							zend_update_property(*run_class_ce, run_obj, "lang", 4, *exist_object TSRMLS_CC);
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "hooks", 6) ){
+							zend_update_property(*run_class_ce, run_obj, "hooks", 5, *exist_object TSRMLS_CC);
 						}
-						break;
+						break;	
 					case 3:
-						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "uri", 4) ){
-							zend_update_property(*run_class_ce, run_obj, "uri", 3, *exist_object TSRMLS_CC);
-						}
-						break;
-					case 4:
-						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "router", 7) ){
-							zend_update_property(*run_class_ce, run_obj, "router", 6, *exist_object TSRMLS_CC);
-						}
-						break;
-					case 5:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "config", 7) ){
 							zend_update_property(*run_class_ce, run_obj, "config", 6, *exist_object TSRMLS_CC);
 						}
 						break;
+					case 4:
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "uri", 4) ){
+							zend_update_property(*run_class_ce, run_obj, "uri", 3, *exist_object TSRMLS_CC);
+						}
+						break;
+					case 5:
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "router", 7) ){
+							zend_update_property(*run_class_ce, run_obj, "router", 6, *exist_object TSRMLS_CC);
+						}
+						break;
 					case 6:
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "lang", 5) ){
+							zend_update_property(*run_class_ce, run_obj, "lang", 4, *exist_object TSRMLS_CC);
+						}
+						break;
+					case 7:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "load", 5) ){
 							zend_update_property(*run_class_ce, run_obj, "load", 4, *exist_object TSRMLS_CC);
 						}

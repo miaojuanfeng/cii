@@ -111,11 +111,29 @@ PHP_METHOD(cii_benchmark, elapsed_time)
 	zend_hash_find(Z_ARRVAL_P(marker), point2, point2_len+1, (void**)&end);
 	RETURN_STRING(_php_math_number_format((double)(Z_DVAL_PP(end)-Z_DVAL_PP(start)), decimals, '.', ','), 0);
 }
+/**
+* Memory Usage
+*
+* Simply returns the {memory_usage} marker.
+*
+* This permits it to be put it anywhere in a template
+* without the memory being calculated until the end.
+* The output class will swap the real value for this variable.
+*
+* @return	string	'{memory_usage}'
+*
+* public function memory_usage()
+*/
+PHP_METHOD(cii_benchmark, memory_usage)
+{
+	RETURN_STRING("{memory_usage}", 1);
+}
 
 zend_function_entry cii_benchmark_methods[] = {
 	PHP_ME(cii_benchmark, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(cii_benchmark, mark, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_benchmark, elapsed_time, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_benchmark, memory_usage, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 

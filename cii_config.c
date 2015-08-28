@@ -15,8 +15,8 @@ PHP_METHOD(cii_config, __construct)
 	/*
 	* init cii_config::config
 	*/
-	zval *get_config_result;
-	CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &get_config_result, 0, NULL);
+	zval *get_config_result = cii_get_config();
+	//CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &get_config_result, 0, NULL);
 	/*
 	* we will use zend_update_property() or add_property_zval_ex() function to update class property.
 	* these function will separate zval when zval's is_ref__gc is true.

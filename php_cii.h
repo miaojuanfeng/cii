@@ -117,7 +117,8 @@ ZEND_END_MODULE_GLOBALS(cii)
         zval_ptr_dtor(&func_name); \
     }while(0)
 
-ZEND_API zval* load_class(char *class, uint param_count, zval **params[]);    
+ZEND_API zval* load_class(char *class, uint param_count, zval **params[]);
+static zval* cii_get_config(); 
 
 #endif	/* PHP_CII_H */
 
