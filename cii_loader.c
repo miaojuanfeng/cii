@@ -133,7 +133,10 @@ PHP_METHOD(cii_loader,view){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
-	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "views/", view, ".php");
+	if( !CII_G(apppath) ){
+		cii_get_apppath();
+	}
+	file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "views/", view, ".php");
 
 	if(zend_hash_exists(&EG(included_files), file, file_len + 1)){
 		efree(file);
@@ -214,7 +217,10 @@ PHP_METHOD(cii_loader, model){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
-	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "models/", model, ".php");
+	if( !CII_G(apppath) ){
+		cii_get_apppath();
+	}
+	file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "models/", model, ".php");
 
 	if (zend_hash_exists(&EG(included_files), file, file_len + 1)){
 		efree(file);
@@ -230,7 +236,7 @@ PHP_METHOD(cii_loader, model){
 	//add new object property to cii_controller class
 	zend_class_entry **ce;
 	if( zend_hash_find(CG(class_table), model, model_len+1, (void**)&ce) == SUCCESS ){
-		if(name){
+		if(name && CII_G(cii_controller_ce) && CII_G(cii_controller)){
 			if( Z_TYPE_P(zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, 1 TSRMLS_CC)) != IS_NULL ){
 				php_error(E_ERROR, "The model name you are loading is the name of a resource that is already being used: %s", name);
 			}
@@ -239,13 +245,17 @@ PHP_METHOD(cii_loader, model){
 			name_len = model_len;
 		}
 		/*
-		*	add new object to cii_controller
+		*	new ce object
 		*/
 		zval *new_object;
 		MAKE_STD_ZVAL(new_object);
 		object_init_ex(new_object, *ce);
-		zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, new_object TSRMLS_CC);
-		zval_ptr_dtor(&new_object);
+		/*
+		*	add new object to cii_controller
+		*/
+		if( CII_G(cii_controller_ce) && CII_G(cii_controller) ){
+			zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, new_object TSRMLS_CC);
+		}
 		/*
 		*	add new model to cii_loader::_models
 		*/
@@ -287,6 +297,7 @@ PHP_METHOD(cii_loader, model){
 			CII_CALL_USER_METHOD_EX(&new_object, "__construct", &retval, 0, NULL);
 			zval_ptr_dtor(&retval);
 		}
+		zval_ptr_dtor(&new_object);
 	}
 	efree(file);
 	RETURN_ZVAL(getThis(), 1, 0);
@@ -318,10 +329,13 @@ PHP_METHOD(cii_loader, helper){
 
 	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
+	if( !CII_G(apppath) ){
+		cii_get_apppath();
+	}
 	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(helper), &pos);
 		zend_hash_get_current_data_ex(Z_ARRVAL_P(helper), (void**)&data, &pos) == SUCCESS;
 		zend_hash_move_forward_ex(Z_ARRVAL_P(helper), &pos) ){
-			file_len = spprintf(&file, 0, "%s%s%s", "/usr/local/httpd/htdocs/cii/helpers/", Z_STRVAL_P(*data), ".php");
+			file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "helpers/", Z_STRVAL_P(*data), ".php");
 			if(zend_hash_exists(&EG(included_files), file, file_len + 1)){
 				efree(file);
 				continue;
@@ -354,8 +368,13 @@ PHP_METHOD(cii_loader, database){
 		zend_error(E_ERROR, "mysqli class has not initialized yet");
 	}
 
-	char *file = "/usr/local/httpd/htdocs/cii/configs/database.php";
-	uint file_len = strlen(file);
+	char *file;
+	uint file_len;
+
+	if( !CII_G(apppath) ){
+		cii_get_apppath();
+	}
+	file_len = spprintf(&file, 0, "%s%s", CII_G(apppath), "configs/database.php");
 
 	if(zend_hash_exists(&EG(included_files), file, file_len + 1)){
 		return;
@@ -367,17 +386,20 @@ PHP_METHOD(cii_loader, database){
 
 	if( zend_hash_find(EG(active_symbol_table), "active_group", 13, (void**)&active_group) == FAILURE ){
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		efree(file);
 		php_error(E_ERROR, "You have not specified a database connection group via $active_group in your config file: %s", file);
 	}
 
 	if( zend_hash_find(EG(active_symbol_table), "db", 3, (void**)&db_arr) == FAILURE ){
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		efree(file);
 		php_error(E_ERROR, "No database connection settings were found in the database config file: %s", file);
 	}
 
 	if( zend_hash_find(Z_ARRVAL_P(*db_arr), Z_STRVAL_P(*active_group), Z_STRLEN_P(*active_group)+1, (void**)&config_arr) == FAILURE ){
 		char *active_group_error = zend_strndup(Z_STRVAL_P(*active_group), Z_STRLEN_P(*active_group));
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		efree(file);
 		php_error(E_ERROR, "You have specified an invalid database connection group (%s) in your config/database.php file: %s", active_group_error, file);
 	}
 
@@ -420,8 +442,10 @@ PHP_METHOD(cii_loader, database){
 	zval *db_obj;
 	MAKE_STD_ZVAL(db_obj);
 	object_init_ex(db_obj, *mysqli_ce);
-	zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), ZEND_STRL("db"), db_obj TSRMLS_CC);
-	zval_ptr_dtor(&db_obj);
+	if( CII_G(cii_controller_ce) && CII_G(cii_controller) ){
+		zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), ZEND_STRL("db"), db_obj TSRMLS_CC);
+	}	
+	
 
 	zval *func_name;
 	zval *retval;
@@ -433,8 +457,10 @@ PHP_METHOD(cii_loader, database){
 	}
 	zval_ptr_dtor(&func_name);
 	zval_ptr_dtor(&retval);
+	zval_ptr_dtor(&db_obj);
 
 	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+	efree(file);
 }
 
 zend_function_entry cii_loader_methods[] = {

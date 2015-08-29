@@ -52,29 +52,26 @@ PHP_INI_END()
 
 static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 {
-	MAKE_STD_ZVAL(cii_globals->classes);
-	array_init(cii_globals->classes);
-	MAKE_STD_ZVAL(cii_globals->config);
-	array_init(cii_globals->config);
-	MAKE_STD_ZVAL(cii_globals->is_loaded);
-	array_init(cii_globals->is_loaded);
-	MAKE_STD_ZVAL(cii_globals->apppath);
-	ZVAL_STRING(cii_globals->apppath, "", 1);
+	cii_globals->cii_controller_ce = NULL;
+	cii_globals->cii_controller = NULL;
+	cii_globals->classes = NULL;
+	cii_globals->is_loaded = NULL;
+	cii_globals->configs = NULL;
+	cii_globals->apppath = NULL;
 }
 
 static void php_cii_globals_dtor(zend_cii_globals *cii_globals)
 {
-	/*if( cii_globals->cii_controller ) zval_ptr_dtor(&cii_globals->cii_controller);
+	if( cii_globals->cii_controller ) zval_ptr_dtor(&cii_globals->cii_controller);
 	if( cii_globals->classes ) zval_ptr_dtor(&cii_globals->classes);
-	if( cii_globals->config ) zval_ptr_dtor(&cii_globals->config);  //when free segment show
+	if( cii_globals->configs ) zval_ptr_dtor(&cii_globals->configs);
 	if( cii_globals->is_loaded ) zval_ptr_dtor(&cii_globals->is_loaded);
-	if( cii_globals->apppath ) zval_ptr_dtor(&cii_globals->apppath);*/
+	if( cii_globals->apppath ) efree(cii_globals->apppath);
 }
 
 PHP_MINIT_FUNCTION(cii)
 {
-	//ZEND_INIT_MODULE_GLOBALS(cii, php_cii_globals_ctor, php_cii_globals_dtor);
-	ZEND_INIT_MODULE_GLOBALS(cii, php_cii_globals_ctor, NULL);
+	ZEND_INIT_MODULE_GLOBALS(cii, php_cii_globals_ctor, php_cii_globals_dtor);
 	/* If you have INI entries, uncomment these lines 
 	REGISTER_INI_ENTRIES();
 	*/
@@ -103,9 +100,9 @@ PHP_RINIT_FUNCTION(cii)
 
 PHP_RSHUTDOWN_FUNCTION(cii)
 {
-/*#ifndef ZTS
+#ifndef ZTS
 	php_cii_globals_dtor(&cii_globals);
-#endif*/
+#endif
 	return SUCCESS;
 }
 
@@ -137,26 +134,44 @@ ZEND_BEGIN_ARG_INFO_EX(cii_is_loaded_arginfo, 0, 1, 0)
 	ZEND_ARG_INFO(0, class)
 ZEND_END_ARG_INFO()
 
-/*
-*	Get the CII singleton
+/**
+* Reference to the CI_Controller method.
+*
+* Returns current CI instance object
+*
+* @return object
+*
+* function &get_instance()
 */
 PHP_FUNCTION(cii_get_instance)
 {
-	if( return_value_used && CII_G(cii_controller) ){
+	if( return_value_used && CII_G(cii_controller_ce) && CII_G(cii_controller) ){
 		zval_ptr_dtor(return_value_ptr);
 		(*return_value_ptr) = CII_G(cii_controller);
 		Z_ADDREF_P(*return_value_ptr);
 	}
 }
 /*
-*
+*	cii_get_apppath
+*/
+static void cii_get_apppath()
+{
+	CII_G(apppath) = estrdup("/usr/local/nginx/html/cii/");
+}
+/*
+*	cii_get_config
 */
 static zval* cii_get_config()
 {
-	if( !(Z_ARRVAL_P(CII_G(config))->nNumOfElements) ){
+	if( !CII_G(configs) ){
 		zval **cfg;
 		char *file;
-		uint file_len = spprintf(&file, 0, "%s%s", Z_STRVAL_P(CII_G(apppath)), "configs/config.php");
+		uint file_len;
+
+		if( !CII_G(apppath) ){
+			cii_get_apppath();
+		}
+		file_len = spprintf(&file, 0, "%s%s", CII_G(apppath), "configs/config.php");
 
 		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
@@ -167,13 +182,14 @@ static zval* cii_get_config()
 			php_error(E_WARNING, "Your config file does not appear to be formatted correctly.");	
 		}
 
-		*CII_G(config) = **cfg;
-		zval_copy_ctor(CII_G(config));	
+		MAKE_STD_ZVAL(CII_G(configs));
+		*CII_G(configs) = **cfg;
+		zval_copy_ctor(CII_G(configs));	
 
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 		efree(file);
 	}
-	return CII_G(config);
+	return CII_G(configs);
 }
 /**
 * Loads the main config.php file
@@ -215,24 +231,29 @@ PHP_FUNCTION(cii_get_config)
 			CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
 			switch(key_type){
 				case HASH_KEY_IS_STRING:
-					zend_hash_update(Z_ARRVAL_P(CII_G(config)), key, key_len, value, sizeof(zval *), NULL);
+					zend_hash_update(Z_ARRVAL_P(CII_G(configs)), key, key_len, value, sizeof(zval *), NULL);
 					break;
 				case HASH_KEY_IS_LONG:
-					zend_hash_index_update(Z_ARRVAL_P(CII_G(config)), idx, value, sizeof(zval *), NULL);
+					zend_hash_index_update(Z_ARRVAL_P(CII_G(configs)), idx, value, sizeof(zval *), NULL);
 					break;
 			}
 		}   	
 	}
-	
 	if(return_value_used){
 		zval_ptr_dtor(return_value_ptr);
-		(*return_value_ptr) = CII_G(config);
+		(*return_value_ptr) = CII_G(configs);
 		Z_ADDREF_P(*return_value_ptr);
 	}
 }
-
-ZEND_API zval* is_loaded(char *class){
-
+/*
+*	is_loaded
+*/
+ZEND_API zval* is_loaded(char *class)
+{
+	if( !CII_G(is_loaded) ){
+		MAKE_STD_ZVAL(CII_G(is_loaded));
+		array_init(CII_G(is_loaded));
+	}
 	if(class){
 		char *lower_class;
 		zval *zclass;
@@ -245,12 +266,39 @@ ZEND_API zval* is_loaded(char *class){
 
 		efree(lower_class);
 	}
-
 	return CII_G(is_loaded);
 }
-
+/**
+* Keeps track of which libraries have been loaded. This function is
+* called by the load_class() function above
+*
+* @param	string
+* @return	array
+*
+* function &is_loaded($class = '')
+*/
+PHP_FUNCTION(cii_is_loaded)
+{
+	char *class;
+	uint class_len;
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!", &class, &class_len) == FAILURE ){
+		WRONG_PARAM_COUNT;
+	}
+	if(return_value_used){
+		zval_ptr_dtor(return_value_ptr);
+		(*return_value_ptr) = is_loaded(class);
+		Z_ADDREF_P(*return_value_ptr);
+	}	
+}
+/*
+*	load_class
+*/
 ZEND_API zval* load_class(char *class, uint param_count, zval **params[])
 {
+	if( !CII_G(classes) ){
+		MAKE_STD_ZVAL(CII_G(classes));
+		array_init(CII_G(classes));
+	}
 	zval **exist_object;
 	if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), class, strlen(class)+1, (void**)&exist_object) == SUCCESS ){
 		return *exist_object;
@@ -264,7 +312,10 @@ ZEND_API zval* load_class(char *class, uint param_count, zval **params[])
 	MAKE_STD_ZVAL(class_obj);
 	lower_class = zend_str_tolower_dup(class, strlen(class));
 
-	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "libraries/", class, ".php");
+	if( !CII_G(apppath) ){
+		cii_get_apppath();
+	}
+	file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "libraries/", class, ".php");
 
 	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
@@ -307,32 +358,19 @@ ZEND_API zval* load_class(char *class, uint param_count, zval **params[])
 * @param	string	the directory where the class should be found
 * @param	string	an optional argument to pass to the class constructor
 * @return	object
+*
+* function &load_class($class, $directory = 'libraries', $param = NULL)
 */
 PHP_FUNCTION(cii_load_class)
 {
 	char *class;
 	uint class_len;
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &class, &class_len) == FAILURE ){
-		return;
+		WRONG_PARAM_COUNT;
 	}
 	if(return_value_used){
 		zval_ptr_dtor(return_value_ptr);
 		(*return_value_ptr) = load_class(class, 0, NULL);
-		Z_ADDREF_P(*return_value_ptr);
-	}	
-}
-/**
-* Keeps track of which libraries have been loaded. This function is
-* called by the load_class() function above
-*
-* @param	string
-* @return	array
-*/
-PHP_FUNCTION(cii_is_loaded)
-{
-	if(return_value_used){
-		zval_ptr_dtor(return_value_ptr);
-		(*return_value_ptr) = is_loaded(NULL);
 		Z_ADDREF_P(*return_value_ptr);
 	}	
 }
@@ -372,9 +410,17 @@ PHP_FUNCTION(cii_is_https)
 
 PHP_FUNCTION(cii_run)
 {
-	ZVAL_STRING(CII_G(apppath), "/usr/local/nginx/html/cii/", 1);
-	//Z_ADDREF_P(CII_G(apppath));
-	zend_hash_update(EG(zend_constants), "BASEPATH", 9, CII_G(apppath), sizeof(zval *), NULL);
+	if( !CII_G(apppath) ){
+		cii_get_apppath();
+	}
+	if( !CII_G(classes) ){
+		MAKE_STD_ZVAL(CII_G(classes));
+		array_init(CII_G(classes));
+	}
+	if( !CII_G(is_loaded) ){
+		MAKE_STD_ZVAL(CII_G(is_loaded));
+		array_init(CII_G(is_loaded));
+	}
 	/*
 	* load CII_Benchmark object
 	*/
@@ -495,7 +541,7 @@ PHP_FUNCTION(cii_run)
 
 	char *file;
 	uint file_len;
-	file_len = spprintf(&file, 0, "%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "controllers/", Z_STRVAL_P(call_class), ".php");
+	file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "controllers/", Z_STRVAL_P(call_class), ".php");
 
 	if (zend_hash_exists(&EG(included_files), file, file_len + 1)){
 		efree(file);
@@ -579,7 +625,7 @@ PHP_FUNCTION(cii_run)
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "load", 5) ){
 							zend_update_property(*run_class_ce, run_obj, "load", 4, *exist_object TSRMLS_CC);
 						}
-						break;	
+						break;
 				}
 				i++;
 		}

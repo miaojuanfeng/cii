@@ -13,24 +13,23 @@ zend_class_entry *cii_config_ce;
 PHP_METHOD(cii_config, __construct)
 {
 	/*
-	* init cii_config::config
+	* 	init cii_config::config
 	*/
 	zval *get_config_result = cii_get_config();
-	//CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &get_config_result, 0, NULL);
 	/*
-	* we will use zend_update_property() or add_property_zval_ex() function to update class property.
-	* these function will separate zval when zval's is_ref__gc is true.
-	* so i do a hack here:
-	* --  Z_UNSET_ISREF_P();
-	* --  zend_update_property();
-	* --  Z_SET_ISREF_P();
-	* it's a good way to lead zend_update_property() not separate zval.
+	*	 we will use zend_update_property() or add_property_zval_ex() function to update class property.
+	* 	these function will separate zval when zval's is_ref__gc is true.
+	* 	so i do a hack here:
+	* 	--  Z_UNSET_ISREF_P();
+	* 	--  zend_update_property();
+	* 	--  Z_SET_ISREF_P();
+	* 	it's a good way to lead zend_update_property() not separate zval.
 	*/
 	Z_UNSET_ISREF_P(get_config_result);
 	zend_update_property(cii_config_ce, getThis(), ZEND_STRL("config"), get_config_result TSRMLS_CC);
 	Z_SET_ISREF_P(get_config_result);
 	/*
-	* set default base_url
+	* 	set default base_url
 	*/
 	//preg_match('/^((\[[0-9a-f:]+\])|(\d{1,3}(\.\d{1,3}){3})|[a-z0-9\-\.]+)(:\d+)?$/i', $_SERVER['HTTP_HOST']);
 	zval **base_url_value;
@@ -270,7 +269,7 @@ zend_function_entry cii_config_methods[] = {
 PHP_MINIT_FUNCTION(cii_config)
 {
 	zend_class_entry ce;
-	INIT_CLASS_ENTRY(ce, "cii_config", cii_config_methods);
+	INIT_CLASS_ENTRY(ce, "CII_Config", cii_config_methods);
 	cii_config_ce = zend_register_internal_class(&ce TSRMLS_CC);
 	/**
 	 * List of all loaded config values

@@ -65,7 +65,7 @@ PHP_METHOD(cii_lang, load)
 			CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &config, 0, NULL);
 			zval_ptr_dtor(&config);
 			zval **cfg_lang;
-			if( zend_hash_find(Z_ARRVAL_P(CII_G(config)), "language", 9, (void**)&cfg_lang) == FAILURE ){
+			if( zend_hash_find(Z_ARRVAL_P(CII_G(configs)), "language", 9, (void**)&cfg_lang) == FAILURE ){
 				idiom = estrndup("english", 8);
 				idiom_len = 8;
 			}else{
@@ -89,7 +89,10 @@ PHP_METHOD(cii_lang, load)
 		langfile = new_langfile;
 		file_len = new_langfile_len;
 
-		len = spprintf(&file, 0, "%s%s%s%s%s", Z_STRVAL_P(CII_G(apppath)), "language/", idiom, "/", langfile);
+		if( !CII_G(apppath) ){
+			cii_get_apppath();
+		}
+		len = spprintf(&file, 0, "%s%s%s%s%s", CII_G(apppath), "language/", idiom, "/", langfile);
 
 		if (zend_hash_exists(&EG(included_files), file, len+1)) {
 			efree(file);

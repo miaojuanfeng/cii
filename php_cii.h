@@ -47,11 +47,11 @@ ZEND_BEGIN_MODULE_GLOBALS(cii)
   zval *cii_controller;
   zval *classes;
   zval *is_loaded;
-	zval *config;
+	zval *configs;
   /*
   *   global path
   */
-  zval *apppath;
+  char *apppath;
 ZEND_END_MODULE_GLOBALS(cii)
 
 
@@ -119,6 +119,7 @@ ZEND_END_MODULE_GLOBALS(cii)
 
 ZEND_API zval* load_class(char *class, uint param_count, zval **params[]);
 static zval* cii_get_config(); 
+static void cii_get_apppath();
 
 #endif	/* PHP_CII_H */
 
