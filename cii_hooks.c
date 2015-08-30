@@ -80,20 +80,148 @@ ZEND_API int cii_run_hook(HashTable *data)
 		zval **function = NULL;
 		zval **filename = NULL;
 		zval **filepath = NULL;
-		zval **params   = NULL;
+		zval **initparams   = NULL;
+		zval **funcparams   = NULL;
 
-		zend_hash_find(data, "class", 	 6, (void**)&class);
-		zend_hash_find(data, "function", 9, (void**)&function);
-		zend_hash_find(data, "filename", 9, (void**)&filename);
-		zend_hash_find(data, "filepath", 9, (void**)&filepath);
-		zend_hash_find(data, "params", 	 7, (void**)&params);
+		zend_hash_find(data, "class", 	   6, (void**)&class);
+		zend_hash_find(data, "function",   9, (void**)&function);
+		zend_hash_find(data, "filename",   9, (void**)&filename);
+		zend_hash_find(data, "filepath",   9, (void**)&filepath);
+		zend_hash_find(data, "initparams", 11, (void**)&initparams);
+		zend_hash_find(data, "funcparams", 11, (void**)&funcparams);
 
-		if( class 	 && Z_TYPE_PP(class)    == IS_STRING ) php_printf("class: %s\n", Z_STRVAL_PP(class));
-		if( function && Z_TYPE_PP(function) == IS_STRING ) php_printf("function: %s\n", Z_STRVAL_PP(function));
-		if( filename && Z_TYPE_PP(filename) == IS_STRING ) php_printf("filename: %s\n", Z_STRVAL_PP(filename));
-		if( filepath && Z_TYPE_PP(filepath) == IS_STRING ) php_printf("filepath: %s\n", Z_STRVAL_PP(filepath));
-		if( params   && Z_TYPE_PP(params)   == IS_ARRAY  ) php_printf("params: %d\n", Z_ARRVAL_PP(params)->nNumOfElements);
+		if( class && Z_TYPE_PP(class) != IS_STRING ||
+			function && Z_TYPE_PP(function) != IS_STRING ||
+			filename && Z_TYPE_PP(filename) != IS_STRING ||
+			filepath && Z_TYPE_PP(filepath) != IS_STRING ){
+			php_error(E_WARNING, "class value or function value or filename value or filepath value should be string");
+			return 0;
+		}
+		if( initparams && Z_TYPE_PP(initparams) != IS_ARRAY ||
+		 	funcparams && Z_TYPE_PP(funcparams) != IS_ARRAY ){
+			php_error(E_WARNING, "initparams value or funcparams value should be array");
+			return 0;
+		}
 
+		if( class ){
+			if( !function ){
+				return 0;
+			}
+		}
+		if( !function ){
+			return 0;
+		}
+		char *filename_call;
+		char *filepath_call;
+		if( filename ){
+			filename_call = Z_STRVAL_PP(filename);
+		}else{
+			return 0;
+		}
+		if( filepath ){
+			filepath_call = Z_STRVAL_PP(filepath);
+		}else{
+			filepath_call = "";
+		}
+
+		char *file;
+		uint file_len;
+		if( !CII_G(apppath) ){
+			cii_get_apppath();
+		}
+		file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "hooks/", filepath_call, filename_call);
+
+		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+		cii_loader_import(file, file_len, 0 TSRMLS_CC);
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		//php_printf("file: %s\n", file);
+		efree(file);
+
+		zval ***initparams_call = NULL, ***initparam_p;
+		uint init_arg_num = 0;
+		if( initparams ){
+			init_arg_num = Z_ARRVAL_PP(initparams)->nNumOfElements;
+			initparams_call = initparam_p = (zval***)emalloc(sizeof(zval**) * init_arg_num);
+			HashPosition pos;
+			zval **value;
+			for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(initparams), &pos);
+		    	zend_hash_has_more_elements_ex(Z_ARRVAL_PP(initparams), &pos) == SUCCESS;
+		    	zend_hash_move_forward_ex(Z_ARRVAL_PP(initparams), &pos)){
+				if( zend_hash_get_current_data_ex(Z_ARRVAL_PP(initparams), (void**)&value, &pos) == FAILURE ){
+					continue;
+				}
+				*initparam_p++ = value;
+			}
+		}
+		zval ***funcparams_call = NULL, ***funcparam_p;
+		uint func_arg_num = 0;
+		if( funcparams ){
+			func_arg_num = Z_ARRVAL_PP(funcparams)->nNumOfElements;
+			funcparams_call = funcparam_p = (zval***)emalloc(sizeof(zval**) * func_arg_num);
+			HashPosition pos;
+			zval **value;
+			for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(funcparams), &pos);
+		    	zend_hash_has_more_elements_ex(Z_ARRVAL_PP(funcparams), &pos) == SUCCESS;
+		    	zend_hash_move_forward_ex(Z_ARRVAL_PP(funcparams), &pos)){
+				if( zend_hash_get_current_data_ex(Z_ARRVAL_PP(funcparams), (void**)&value, &pos) == FAILURE ){
+					continue;
+				}
+				*funcparam_p++ = value;
+			}
+		}
+		//
+		if( class ){
+			zend_class_entry **hook_call_ce;
+			char *class_lower = zend_str_tolower_dup(Z_STRVAL_PP(class), Z_STRLEN_PP(class));
+			if( zend_hash_find(CG(class_table), class_lower, Z_STRLEN_PP(class)+1, (void**)&hook_call_ce) == SUCCESS ){
+				zval *hook_call_obj;
+				MAKE_STD_ZVAL(hook_call_obj);
+				object_init_ex(hook_call_obj, *hook_call_ce);
+				if (zend_hash_exists(&(*hook_call_ce)->function_table, "__construct", 12)) {
+					zval *hook_call_retval;
+					CII_CALL_USER_METHOD_EX(&hook_call_obj, "__construct", &hook_call_retval, init_arg_num, initparams_call);
+					zval_ptr_dtor(&hook_call_retval);
+				}
+				char *function_lower = zend_str_tolower_dup(Z_STRVAL_PP(function), Z_STRLEN_PP(function));
+				if (zend_hash_exists(&(*hook_call_ce)->function_table, function_lower, Z_STRLEN_PP(function)+1)) {
+					zval *hook_call_retval;
+					CII_CALL_USER_METHOD_EX(&hook_call_obj, function_lower, &hook_call_retval, func_arg_num, funcparams_call);
+					zval_ptr_dtor(&hook_call_retval);
+				}else{
+					php_error(E_WARNING, "Unable to load the function you specified: %s", Z_STRVAL_PP(function));
+				}
+				efree(function_lower);
+				zval_ptr_dtor(&hook_call_obj);
+			}else{
+				php_error(E_WARNING, "Unable to load the class you specified: %s", Z_STRVAL_PP(class));
+				efree(class_lower);
+				if( initparams_call ){
+					efree(initparams_call);
+				}
+				if( funcparams_call ){
+					efree(funcparams_call);
+				}
+				return 0;
+			}
+			efree(class_lower);
+		}else{
+			char *function_lower = zend_str_tolower_dup(Z_STRVAL_PP(function), Z_STRLEN_PP(function));
+			if (zend_hash_exists(EG(function_table), function_lower, Z_STRLEN_PP(function)+1)) {
+				zval *hook_call_retval;
+				CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, function_lower, &hook_call_retval, func_arg_num, funcparams_call);
+				zval_ptr_dtor(&hook_call_retval);
+			}else{
+				php_error(E_WARNING, "Unable to load the function you specified: %s", Z_STRVAL_PP(function));
+			}
+			efree(function_lower);
+		}	
+		//
+		if( initparams_call ){
+			efree(initparams_call);
+		}
+		if( funcparams_call ){
+			efree(funcparams_call);
+		}
 		return 1;
 	}
 	return 0;

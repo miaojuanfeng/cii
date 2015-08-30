@@ -235,7 +235,8 @@ PHP_METHOD(cii_loader, model){
 
 	//add new object property to cii_controller class
 	zend_class_entry **ce;
-	if( zend_hash_find(CG(class_table), model, model_len+1, (void**)&ce) == SUCCESS ){
+	char *model_lower = zend_str_tolower_dup(model, model_len);
+	if( zend_hash_find(CG(class_table), model_lower, model_len+1, (void**)&ce) == SUCCESS ){
 		if(name && CII_G(cii_controller_ce) && CII_G(cii_controller)){
 			if( Z_TYPE_P(zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, 1 TSRMLS_CC)) != IS_NULL ){
 				php_error(E_ERROR, "The model name you are loading is the name of a resource that is already being used: %s", name);
@@ -299,6 +300,7 @@ PHP_METHOD(cii_loader, model){
 		}
 		zval_ptr_dtor(&new_object);
 	}
+	efree(model_lower);
 	efree(file);
 	RETURN_ZVAL(getThis(), 1, 0);
 }
