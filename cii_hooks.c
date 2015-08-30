@@ -82,14 +82,18 @@ ZEND_API int cii_run_hook(HashTable *data)
 		zval **filepath = NULL;
 		zval **initparams   = NULL;
 		zval **funcparams   = NULL;
-
+		/*
+		*	get hook's data
+		*/
 		zend_hash_find(data, "class", 	   6, (void**)&class);
 		zend_hash_find(data, "function",   9, (void**)&function);
 		zend_hash_find(data, "filename",   9, (void**)&filename);
 		zend_hash_find(data, "filepath",   9, (void**)&filepath);
 		zend_hash_find(data, "initparams", 11, (void**)&initparams);
 		zend_hash_find(data, "funcparams", 11, (void**)&funcparams);
-
+		/*
+		*	check hook's data
+		*/
 		if( class && Z_TYPE_PP(class) != IS_STRING ||
 			function && Z_TYPE_PP(function) != IS_STRING ||
 			filename && Z_TYPE_PP(filename) != IS_STRING ||
@@ -102,7 +106,6 @@ ZEND_API int cii_run_hook(HashTable *data)
 			php_error(E_WARNING, "initparams value or funcparams value should be array");
 			return 0;
 		}
-
 		if( class ){
 			if( !function ){
 				return 0;
@@ -123,7 +126,9 @@ ZEND_API int cii_run_hook(HashTable *data)
 		}else{
 			filepath_call = "";
 		}
-
+		/*
+		*	load hook's data
+		*/
 		char *file;
 		uint file_len;
 		if( !CII_G(apppath) ){
@@ -134,9 +139,10 @@ ZEND_API int cii_run_hook(HashTable *data)
 		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 		cii_loader_import(file, file_len, 0 TSRMLS_CC);
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-		//php_printf("file: %s\n", file);
 		efree(file);
-
+		/*
+		*	init initparams and funcparams
+		*/
 		zval ***initparams_call = NULL, ***initparam_p;
 		uint init_arg_num = 0;
 		if( initparams ){
@@ -169,7 +175,9 @@ ZEND_API int cii_run_hook(HashTable *data)
 				*funcparam_p++ = value;
 			}
 		}
-		//
+		/*
+		*	call hook's function
+		*/
 		if( class ){
 			zend_class_entry **hook_call_ce;
 			char *class_lower = zend_str_tolower_dup(Z_STRVAL_PP(class), Z_STRLEN_PP(class));
@@ -215,7 +223,9 @@ ZEND_API int cii_run_hook(HashTable *data)
 			}
 			efree(function_lower);
 		}	
-		//
+		/*
+		*	free used memory
+		*/
 		if( initparams_call ){
 			efree(initparams_call);
 		}
