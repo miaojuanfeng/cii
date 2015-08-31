@@ -268,7 +268,7 @@ ZEND_API int cii_call_hook(zend_class_entry *cii_hooks_ce, zval *cii_hooks_obj, 
 	if( Z_TYPE_P(enabled) != IS_BOOL || Z_BVAL_P(enabled) == 0 ){
 		return 0;
 	}
-	zval *hooks = zend_read_property(cii_hooks_ce, cii_hooks_obj, ZEND_STRL("hooks"), 1 TSRMLS_CC);;
+	zval *hooks = zend_read_property(cii_hooks_ce, cii_hooks_obj, ZEND_STRL("hooks"), 1 TSRMLS_CC);
 	zval **call_hook;
 	if( zend_hash_find(Z_ARRVAL_P(hooks), which, which_len, (void**)&call_hook) == FAILURE ){
 		return 0;

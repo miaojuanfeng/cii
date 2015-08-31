@@ -31,14 +31,47 @@ PHP_METHOD(cii_lang, __construct)
 	*/
 	php_printf("Info: Language Class Initialized\n");
 }
+/*
+*	load language file
+*/
+ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, char *file, uint len, zval *langfile, zval *idiom){
+
+	if (zend_hash_exists(&EG(included_files), file, len+1)) {
+		return 1;
+	}
+
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+
+	cii_loader_import(file, len, 0 TSRMLS_CC);
+
+	zval **lang;
+	if( zend_hash_find(EG(active_symbol_table), "lang", 5, (void**)&lang) == FAILURE ){
+		if( idiom && Z_STRLEN_P(idiom) ){
+			php_error(E_WARNING, "Language file contains no data: language/%s/%s.php", Z_STRVAL_P(idiom), Z_STRVAL_P(langfile));
+		}else{
+			php_error(E_WARNING, "Language file contains no data: language/%s.php", Z_STRVAL_P(langfile));
+		}
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		return 0;
+	}
+
+	zval *is_loaded = zend_read_property(cii_lang_ce, cii_lang_obj, ZEND_STRL("is_loaded"), 1 TSRMLS_CC);
+	Z_ADDREF_P(idiom);
+	zend_hash_update(Z_ARRVAL_P(is_loaded), Z_STRVAL_P(langfile), Z_STRLEN_P(langfile)+1, &idiom, sizeof(zval *), NULL);
+
+	zval *language = zend_read_property(cii_lang_ce, cii_lang_obj, ZEND_STRL("language"), 1 TSRMLS_CC);
+	php_array_merge(Z_ARRVAL_P(language), Z_ARRVAL_P(*lang), 0 TSRMLS_CC);
+
+	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+
+	return 1;
+}
 /**
 * Load a language file
 *
 * @param	mixed	$langfile	Language file name
 * @param	string	$idiom		Language name (english, etc.)
 * @param	bool	$return		Whether to return the loaded array of translations
-* @param 	bool	$add_suffix	Whether to add suffix to $langfile
-* @param 	string	$alt_path	Alternative path to look for the language file
 *
 * @return	void|string[]	Array containing translations, if $return is set to TRUE
 *
@@ -46,86 +79,53 @@ PHP_METHOD(cii_lang, __construct)
 */
 PHP_METHOD(cii_lang, load)
 {
-	char *langfile, *idiom;
-	uint file_len = 0, idiom_len = 0;
+	zval *langfile;
+	zval *idiom = NULL;
+	char is_return = 0;
+	char *file;
+	uint len;
 
-	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &langfile, &file_len, &idiom, &idiom_len) == FAILURE ){
-		return;
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z!b", &langfile, &idiom, &is_return) == FAILURE ){
+		WRONG_PARAM_COUNT;
 	}
 
-	if( !file_len ){
-		return;
-	}else{
-		char *file;
-		uint len;
-		char need_free_idiom = 0;
+	if( !idiom ){
+		zval **defaultl;
+		if( zend_hash_find(Z_ARRVAL_P(CII_G(configs)), "language", 9, (void**)&defaultl) != FAILURE ){
+			idiom = *defaultl;
+		}
+	}
+	
+	if( !CII_G(apppath) ){
+		cii_get_apppath();
+	}
 
-		if( !idiom_len ){
-			zval *config;
-			CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "cii_get_config", &config, 0, NULL);
-			zval_ptr_dtor(&config);
-			zval **cfg_lang;
-			if( zend_hash_find(Z_ARRVAL_P(CII_G(configs)), "language", 9, (void**)&cfg_lang) == FAILURE ){
-				idiom = estrndup("english", 8);
-				idiom_len = 8;
-			}else{
-				idiom = estrndup(Z_STRVAL_PP(cfg_lang), Z_STRLEN_PP(cfg_lang));
-				idiom_len = Z_STRLEN_PP(cfg_lang);
+	if( Z_TYPE_P(langfile) == IS_ARRAY ){
+		HashPosition pos;
+		zval **value;
+		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(langfile), &pos);
+		    zend_hash_has_more_elements_ex(Z_ARRVAL_P(langfile), &pos) == SUCCESS;
+		    zend_hash_move_forward_ex(Z_ARRVAL_P(langfile), &pos)){
+
+			if(zend_hash_get_current_data_ex(Z_ARRVAL_P(langfile), (void**)&value, &pos) == FAILURE){
+				continue;
 			}
-			need_free_idiom = 1;
-		}
-
-		char *new_langfile = langfile;
-		uint new_langfile_len = file_len;
-		if(new_langfile_len > 5){
-			if( strcmp(&new_langfile[new_langfile_len-5], "_lang") ){
-				new_langfile_len = spprintf(&new_langfile, 0, "%s%s", new_langfile, "_lang.php");
+			if( idiom && Z_STRLEN_P(idiom) ){
+				len = spprintf(&file, 0, "%s%s%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(idiom), "/", Z_STRVAL_PP(value), ".php");
 			}else{
-				new_langfile_len = spprintf(&new_langfile, 0, "%s%s", new_langfile, ".php");
+				len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_PP(value), ".php");
 			}
-		}else{
-			new_langfile_len = spprintf(&new_langfile, 0, "%s%s", new_langfile, "_lang.php");
-		}
-		langfile = new_langfile;
-		file_len = new_langfile_len;
-
-		if( !CII_G(apppath) ){
-			cii_get_apppath();
-		}
-		len = spprintf(&file, 0, "%s%s%s%s%s", CII_G(apppath), "language/", idiom, "/", langfile);
-
-		if (zend_hash_exists(&EG(included_files), file, len+1)) {
+			cii_load_lang(cii_lang_ce, getThis(), file, len, *value, idiom);
 			efree(file);
-			efree(new_langfile);
-			RETURN_TRUE;
 		}
-
-		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
-
-		if(cii_loader_import(file, len, 0 TSRMLS_CC)){
-			zval **lang;
-
-			if( zend_hash_find(EG(active_symbol_table), "lang", 5, (void**)&lang) == FAILURE ){
-				php_error(E_WARNING, "Language file contains no data: language/%s/%s", idiom, langfile);
-			}
-
-			zval *z_idiom;
-			MAKE_STD_ZVAL(z_idiom);
-			ZVAL_STRING(z_idiom, idiom, idiom_len+1);
-			zval *is_loaded = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("is_loaded"), 1 TSRMLS_CC);
-			zend_hash_update(Z_ARRVAL_P(is_loaded), langfile, file_len+1, &z_idiom, sizeof(zval *), NULL);
-
-			zval *language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
-			php_array_merge(Z_ARRVAL_P(language), Z_ARRVAL_P(*lang), 0 TSRMLS_CC);
+	}else if( Z_TYPE_P(langfile) == IS_STRING ){
+		if( idiom && Z_STRLEN_P(idiom) ){
+			len = spprintf(&file, 0, "%s%s%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(idiom), "/", Z_STRVAL_P(langfile), ".php");
+		}else{
+			len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(langfile), ".php");
 		}
-
-		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-
+		cii_load_lang(cii_lang_ce, getThis(), file, len, langfile, idiom);
 		efree(file);
-		efree(new_langfile);
-		if(need_free_idiom){
-			efree(idiom);
-		}
 	}
 	RETURN_TRUE;
 }
