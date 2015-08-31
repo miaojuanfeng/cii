@@ -267,7 +267,7 @@ CII 的语言类给你的应用程序提供了一种简单轻便的方式来实�
 
 #### 创建语言文件
 
-语言文件的命名必须以 _lang.php 结尾，例如，你想创建一个包含错误消息的文件， 你可以把它命名为：error_lang.php 。
+语言文件的命名可以任意，例如，你想创建一个包含错误消息的文件， 你可以把它命名为：error_lang.php 。
 
 在此文件中，你可以在每行把一个字符串赋值给名为 $lang 的数组，例如:
 
@@ -291,12 +291,12 @@ $lang['error_username_missing'] = 'You must submit a username';
 $this->lang->load('filename', 'language');
 ```
 
-其中 filename 是你要加载的语言文件名（不带扩展名），language 是要加载哪种语言（比如，英语）。 如果没有第二个参数，将会使用 config/config.php 中设置的默认语言。
+其中 filename 是你要加载的语言文件名（不带.php扩展名），language 是要加载哪种语言（比如，英语）。如果没有第二个参数，将会使用 config/config.php 中设置的默认语言。
 
 你也可以通过传一个语言文件的数组给第一个参数来同时加载多个语言文件。
 
 ```php
-$this->lang->load(array('filename1', 'filename2'));
+$this->lang->load(array('filename1', 'filename2'), 'language');
 ```
 
 language 参数只能包含字母。
@@ -311,13 +311,17 @@ $this->lang->line('language_key');
 
 其中，language_key 参数是你想显示的文本行所对应的数组的键名。
 
-万一你不确定你想读取的那行文本是否存在，你还可以将第二个参数设置为 FALSE 禁用错误日志:
+该方法只是简单的返回文本行，而不是显示出它。
+
+#### 返回语言文本
+
+如果需要返回语言文本而不是加载它，使用第三个参数is_return，将返回读取的语言文本：
 
 ```php
-$this->lang->line('misc_key', FALSE);
+$lang = $this->lang->load(array('filename1', 'filename2'), 'language', 1);
 ```
 
-该方法只是简单的返回文本行，而不是显示出它。
+变量 <code>$lang</code> 将会是包含了语言文本的数组。
 
 ### 自动加载语言文件
 
