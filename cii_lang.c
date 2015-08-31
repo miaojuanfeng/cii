@@ -34,8 +34,8 @@ PHP_METHOD(cii_lang, __construct)
 /*
 *	load language file
 */
-ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, char *file, uint len, zval *langfile, zval *idiom){
-
+ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, char *file, uint len, zval *langfile, zval *idiom, char is_return, zval **pDest)
+{
 	if (zend_hash_exists(&EG(included_files), file, len+1)) {
 		return 1;
 	}
@@ -53,6 +53,12 @@ ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, ch
 		}
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 		return 0;
+	}
+	if( is_return ){
+		*pDest = *lang;
+		Z_ADDREF_P(*pDest);
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		return 1;
 	}
 
 	zval *is_loaded = zend_read_property(cii_lang_ce, cii_lang_obj, ZEND_STRL("is_loaded"), 1 TSRMLS_CC);
@@ -73,15 +79,17 @@ ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, ch
 * @param	string	$idiom		Language name (english, etc.)
 * @param	bool	$return		Whether to return the loaded array of translations
 *
-* @return	void|string[]	Array containing translations, if $return is set to TRUE
+* @return	true|false|array	Array containing translations, if $return is set to TRUE
 *
-* public function load($langfile, $idiom = '')
+* public function load($langfile, $idiom = '', $is_return)
 */
 PHP_METHOD(cii_lang, load)
 {
 	zval *langfile;
 	zval *idiom = NULL;
 	char is_return = 0;
+	zval *retzval;
+	char retval = 0;
 	char *file;
 	uint len;
 
@@ -103,6 +111,9 @@ PHP_METHOD(cii_lang, load)
 	if( Z_TYPE_P(langfile) == IS_ARRAY ){
 		HashPosition pos;
 		zval **value;
+		if( is_return ){
+			array_init(return_value);
+		}
 		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(langfile), &pos);
 		    zend_hash_has_more_elements_ex(Z_ARRVAL_P(langfile), &pos) == SUCCESS;
 		    zend_hash_move_forward_ex(Z_ARRVAL_P(langfile), &pos)){
@@ -115,7 +126,10 @@ PHP_METHOD(cii_lang, load)
 			}else{
 				len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_PP(value), ".php");
 			}
-			cii_load_lang(cii_lang_ce, getThis(), file, len, *value, idiom);
+			retval = cii_load_lang(cii_lang_ce, getThis(), file, len, *value, idiom, is_return, &retzval);
+			if( is_return ){
+				zend_hash_update(Z_ARRVAL_P(return_value), Z_STRVAL_PP(value), Z_STRLEN_PP(value)+1, &retzval, sizeof(zval *), NULL);
+			}
 			efree(file);
 		}
 	}else if( Z_TYPE_P(langfile) == IS_STRING ){
@@ -124,10 +138,17 @@ PHP_METHOD(cii_lang, load)
 		}else{
 			len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(langfile), ".php");
 		}
-		cii_load_lang(cii_lang_ce, getThis(), file, len, langfile, idiom);
+		retval = cii_load_lang(cii_lang_ce, getThis(), file, len, langfile, idiom, is_return, &retzval);
+		if( is_return ){
+			*return_value = *retzval;
+			zval_copy_ctor(return_value);
+			zval_ptr_dtor(&retzval);
+		}
 		efree(file);
 	}
-	RETURN_TRUE;
+	if( !is_return ){
+		RETURN_BOOL(retval);
+	}
 }
 /**
 * Language line
@@ -135,7 +156,6 @@ PHP_METHOD(cii_lang, load)
 * Fetches a single line of text from the language array
 *
 * @param	string	$line		Language line key
-* @param	bool	$log_errors	Whether to log an error message if the line is not found
 * @return	string	Translation
 * 
 * public function line($line)
@@ -151,7 +171,7 @@ PHP_METHOD(cii_lang, line)
 	}
 	language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
 	if( zend_hash_find(Z_ARRVAL_P(language), line, line_len+1, (void**)&value) == FAILURE ){
-		php_error(E_NOTICE, "Could not find the language line %s", line);
+		php_error(E_NOTICE, "Could not find the language line: %s", line);
 		return;
 	}
 	RETURN_ZVAL(*value, 1, 0);
