@@ -656,18 +656,19 @@ PHP_FUNCTION(cii_run)
 		*/
 		php_printf("Info: Controller Class Initialized\n");
 		/*
+		*  Is there a "pre_controller" hook?
+		*/
+		cii_call_hook(cii_hooks_ce, cii_hooks_obj, "pre_controller", 15);
+		/*
 		*	Mark a start point so we can benchmark the controller
 		*/
 		char *mark_name_start;
 		uint mark_start_len;
-
 		mark_start_len = spprintf(&mark_name_start, 0, "%s%s%s%s%s", "controller_execution_time_( ", Z_STRVAL_P(call_class), " / ", Z_STRVAL_P(call_method), " )_start");
-
 		zval *controller_execution_time_start;
 		MAKE_STD_ZVAL(controller_execution_time_start);
 		ZVAL_DOUBLE(controller_execution_time_start, cii_microtime());
 		zend_hash_update(Z_ARRVAL_P(marker), mark_name_start, mark_start_len+1, &controller_execution_time_start, sizeof(zval*), NULL);
-
 		efree(mark_name_start);
 		/*
 		* 	call run_obj's __construct method
@@ -677,6 +678,10 @@ PHP_FUNCTION(cii_run)
 			CII_CALL_USER_METHOD_EX(&run_obj, "__construct", &run_class_retval, 0, NULL);
 			zval_ptr_dtor(&run_class_retval);
 		}
+		/*
+ 		*  Is there a "post_controller_constructor" hook?
+ 		*/
+ 		cii_call_hook(cii_hooks_ce, cii_hooks_obj, "post_controller_constructor", 28);
 		/*
 		* 	call run_obj's method
 		*/
@@ -692,15 +697,16 @@ PHP_FUNCTION(cii_run)
 		*/
 		char *mark_name_end;
 		uint mark_end_len;
-
 		mark_end_len = spprintf(&mark_name_end, 0, "%s%s%s%s%s", "controller_execution_time_( ", Z_STRVAL_P(call_class), " / ", Z_STRVAL_P(call_method), " )_end");
-
 		zval *controller_execution_time_end;
 		MAKE_STD_ZVAL(controller_execution_time_end);
 		ZVAL_DOUBLE(controller_execution_time_end, cii_microtime());
 		zend_hash_update(Z_ARRVAL_P(marker), mark_name_end, mark_end_len+1, &controller_execution_time_end, sizeof(zval*), NULL);
-
 		efree(mark_name_end);
+		/*
+		*  Is there a "post_controller" hook?
+		*/
+		cii_call_hook(cii_hooks_ce, cii_hooks_obj, "post_controller", 16);
 	}
 	/*
 	*	mark total_execution_time_end benchmark
@@ -709,6 +715,10 @@ PHP_FUNCTION(cii_run)
 	MAKE_STD_ZVAL(total_execution_time_end);
 	ZVAL_DOUBLE(total_execution_time_end, cii_microtime());
 	zend_hash_update(Z_ARRVAL_P(marker), "total_execution_time_end", 25, &total_execution_time_end, sizeof(zval*), NULL);
+	/*
+	*  Is there a "post_system" hook?
+	*/
+	cii_call_hook(cii_hooks_ce, cii_hooks_obj, "post_system", 12);
 }
 
 const zend_function_entry cii_functions[] = {

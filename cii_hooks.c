@@ -197,6 +197,16 @@ ZEND_API int cii_run_hook(HashTable *data)
 					zval_ptr_dtor(&hook_call_retval);
 				}else{
 					php_error(E_WARNING, "Unable to load the function you specified: %s", Z_STRVAL_PP(function));
+					efree(class_lower);
+					if( initparams_call ){
+						efree(initparams_call);
+					}
+					if( funcparams_call ){
+						efree(funcparams_call);
+					}
+					efree(function_lower);
+					zval_ptr_dtor(&hook_call_obj);
+					return 0;
 				}
 				efree(function_lower);
 				zval_ptr_dtor(&hook_call_obj);
@@ -220,6 +230,14 @@ ZEND_API int cii_run_hook(HashTable *data)
 				zval_ptr_dtor(&hook_call_retval);
 			}else{
 				php_error(E_WARNING, "Unable to load the function you specified: %s", Z_STRVAL_PP(function));
+				if( initparams_call ){
+					efree(initparams_call);
+				}
+				if( funcparams_call ){
+					efree(funcparams_call);
+				}
+				efree(function_lower);
+				return 0;
 			}
 			efree(function_lower);
 		}	
@@ -235,6 +253,49 @@ ZEND_API int cii_run_hook(HashTable *data)
 		return 1;
 	}
 	return 0;
+}
+/**
+* Call Hook
+*
+* Runs a particular hook. Called by cii.c.
+*
+* @param	char	which	Hook name
+* @return	bool	TRUE on success or FALSE on failure
+*/
+ZEND_API int cii_call_hook(zend_class_entry *cii_hooks_ce, zval *cii_hooks_obj, char *which, uint which_len)
+{
+	zval *enabled = zend_read_property(cii_hooks_ce, cii_hooks_obj, ZEND_STRL("enabled"), 1 TSRMLS_CC);
+	if( Z_TYPE_P(enabled) != IS_BOOL || Z_BVAL_P(enabled) == 0 ){
+		return 0;
+	}
+	zval *hooks = zend_read_property(cii_hooks_ce, cii_hooks_obj, ZEND_STRL("hooks"), 1 TSRMLS_CC);;
+	zval **call_hook;
+	if( zend_hash_find(Z_ARRVAL_P(hooks), which, which_len, (void**)&call_hook) == FAILURE ){
+		return 0;
+	}
+	/*
+	*	call hook function
+	*/
+	//php_printf("type: %d\n", Z_TYPE_PP((zval**)Z_ARRVAL_PP(call_hook)->pListHead->pData));
+	//php_printf("n: %d\n", Z_ARRVAL_PP(call_hook)->nNumOfElements);
+	if( Z_ARRVAL_PP(call_hook)->pListHead && Z_TYPE_PP((zval**)Z_ARRVAL_PP(call_hook)->pListHead->pData) == IS_ARRAY ){
+		HashPosition pos;
+		zval **value;
+		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(call_hook), &pos);
+		    zend_hash_has_more_elements_ex(Z_ARRVAL_PP(call_hook), &pos) == SUCCESS;
+		    zend_hash_move_forward_ex(Z_ARRVAL_PP(call_hook), &pos)){
+			if( zend_hash_get_current_data_ex(Z_ARRVAL_PP(call_hook), (void**)&value, &pos) == FAILURE ||
+				Z_TYPE_PP(value) != IS_ARRAY ){
+				continue;
+			}
+			if( !cii_run_hook(Z_ARRVAL_PP(value)) ){
+				return 0;
+			}
+		}
+		return 1;
+	}else{
+		return cii_run_hook(Z_ARRVAL_PP(call_hook));
+	}
 }
 /**
 * Call Hook
@@ -255,38 +316,7 @@ PHP_METHOD(cii_hooks, call_hook)
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!", &which, &which_len) == FAILURE ){
 		WRONG_PARAM_COUNT;
 	}
-	zval *enabled = zend_read_property(cii_hooks_ce, getThis(), ZEND_STRL("enabled"), 1 TSRMLS_CC);
-	if( Z_TYPE_P(enabled) != IS_BOOL || Z_BVAL_P(enabled) == 0 ){
-		RETURN_FALSE;
-	}
-	zval *hooks = zend_read_property(cii_hooks_ce, getThis(), ZEND_STRL("hooks"), 1 TSRMLS_CC);;
-	zval **call_hook;
-	if( zend_hash_find(Z_ARRVAL_P(hooks), which, which_len, (void**)&call_hook) == FAILURE ){
-		RETURN_FALSE;
-	}
-	/*
-	*	call hook function
-	*/
-	//php_printf("type: %d\n", Z_TYPE_PP((zval**)Z_ARRVAL_PP(call_hook)->pListHead->pData));
-	//php_printf("n: %d\n", Z_ARRVAL_PP(call_hook)->nNumOfElements);
-	if( Z_ARRVAL_PP(call_hook)->pListHead && Z_TYPE_PP((zval**)Z_ARRVAL_PP(call_hook)->pListHead->pData) == IS_ARRAY ){
-		HashPosition pos;
-		zval **value;
-		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(call_hook), &pos);
-		    zend_hash_has_more_elements_ex(Z_ARRVAL_PP(call_hook), &pos) == SUCCESS;
-		    zend_hash_move_forward_ex(Z_ARRVAL_PP(call_hook), &pos)){
-			if( zend_hash_get_current_data_ex(Z_ARRVAL_PP(call_hook), (void**)&value, &pos) == FAILURE ||
-				Z_TYPE_PP(value) != IS_ARRAY ){
-				continue;
-			}
-			if( !cii_run_hook(Z_ARRVAL_PP(value)) ){
-				RETURN_BOOL(0);
-			}
-		}
-		RETURN_BOOL(1);
-	}else{
-		RETURN_BOOL(cii_run_hook(Z_ARRVAL_PP(call_hook)));
-	}
+	RETURN_BOOL(cii_call_hook(cii_hooks_ce, getThis(), which, which_len+1));
 }
 
 zend_function_entry cii_hooks_methods[] = {
