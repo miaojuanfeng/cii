@@ -20,13 +20,13 @@ PHP_METHOD(cii_hooks, __construct)
 	zend_update_property(cii_hooks_ce, getThis(), ZEND_STRL("hooks"), hooks TSRMLS_CC);
 	zval_ptr_dtor(&hooks);
 	/*
-	*	init cii_hooks::_objects
+	*	init cii_hooks::objects
 	*/
-	zval *_objects;
-	MAKE_STD_ZVAL(_objects);
-	array_init(_objects);
-	zend_update_property(cii_hooks_ce, getThis(), ZEND_STRL("_objects"), _objects TSRMLS_CC);
-	zval_ptr_dtor(&_objects);
+	zval *objects;
+	MAKE_STD_ZVAL(objects);
+	array_init(objects);
+	zend_update_property(cii_hooks_ce, getThis(), ZEND_STRL("objects"), objects TSRMLS_CC);
+	zval_ptr_dtor(&objects);
 	/*
 	*	output log
 	*/
@@ -73,7 +73,7 @@ PHP_METHOD(cii_hooks, __construct)
 * @param	array	$data	Hook details
 * @return	bool	TRUE on success or FALSE on failure
 */
-ZEND_API int cii_run_hook(HashTable *data)
+ZEND_API int cii_run_hook(zend_class_entry *cii_hooks_ce, zval *cii_hooks_obj, HashTable *data)
 {
 	if( data->nNumOfElements ){
 		zval **class    = NULL;
@@ -92,7 +92,7 @@ ZEND_API int cii_run_hook(HashTable *data)
 		zend_hash_find(data, "initparams", 11, (void**)&initparams);
 		zend_hash_find(data, "funcparams", 11, (void**)&funcparams);
 		/*
-		*	check hook's data
+		*	check hook's format
 		*/
 		if( class && Z_TYPE_PP(class) != IS_STRING ||
 			function && Z_TYPE_PP(function) != IS_STRING ||
@@ -106,6 +106,9 @@ ZEND_API int cii_run_hook(HashTable *data)
 			php_error(E_WARNING, "initparams value or funcparams value should be array");
 			return 0;
 		}
+		/*
+		*	check hook's data
+		*/
 		if( class ){
 			if( !function ){
 				return 0;
@@ -126,20 +129,6 @@ ZEND_API int cii_run_hook(HashTable *data)
 		}else{
 			filepath_call = "";
 		}
-		/*
-		*	load hook's data
-		*/
-		char *file;
-		uint file_len;
-		if( !CII_G(apppath) ){
-			cii_get_apppath();
-		}
-		file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "hooks/", filepath_call, filename_call);
-
-		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
-		cii_loader_import(file, file_len, 0 TSRMLS_CC);
-		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-		efree(file);
 		/*
 		*	init initparams and funcparams
 		*/
@@ -176,9 +165,58 @@ ZEND_API int cii_run_hook(HashTable *data)
 			}
 		}
 		/*
+		*	If we have stored the object
+		*/
+		if( class ){
+			zval *objects = zend_read_property(cii_hooks_ce, cii_hooks_obj, "objects", 7, 1 TSRMLS_CC);
+			zval **hook_stored_obj;
+			if( zend_hash_find(Z_ARRVAL_P(objects), Z_STRVAL_PP(class), Z_STRLEN_PP(class)+1, (void**)&hook_stored_obj) != FAILURE ){
+				char *function_lower = zend_str_tolower_dup(Z_STRVAL_PP(function), Z_STRLEN_PP(function));
+				if (zend_hash_exists(&zend_get_class_entry(*hook_stored_obj)->function_table, function_lower, Z_STRLEN_PP(function)+1)) {
+					zval *hook_stored_retval;
+					CII_CALL_USER_METHOD_EX(hook_stored_obj, function_lower, &hook_stored_retval, func_arg_num, funcparams_call);
+					zval_ptr_dtor(&hook_stored_retval);
+					if( initparams_call ){
+						efree(initparams_call);
+					}
+					if( funcparams_call ){
+						efree(funcparams_call);
+					}
+					efree(function_lower);
+					return 1;
+				}else{
+					php_error(E_WARNING, "Unable to load the function you specified: %s", Z_STRVAL_PP(function));
+					if( initparams_call ){
+						efree(initparams_call);
+					}
+					if( funcparams_call ){
+						efree(funcparams_call);
+					}
+					efree(function_lower);
+					return 0;
+				}
+			}
+		}	
+		/*
+		*	load hook's data
+		*/
+		char *file;
+		uint file_len;
+		if( !CII_G(apppath) ){
+			cii_get_apppath();
+		}
+		file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "hooks/", filepath_call, filename_call);
+		CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+		cii_loader_import(file, file_len, 0 TSRMLS_CC);
+		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+		efree(file);
+		/*
 		*	call hook's function
 		*/
 		if( class ){
+			/*
+			*	hook is a class
+			*/
 			zend_class_entry **hook_call_ce;
 			char *class_lower = zend_str_tolower_dup(Z_STRVAL_PP(class), Z_STRLEN_PP(class));
 			if( zend_hash_find(CG(class_table), class_lower, Z_STRLEN_PP(class)+1, (void**)&hook_call_ce) == SUCCESS ){
@@ -208,6 +246,15 @@ ZEND_API int cii_run_hook(HashTable *data)
 					zval_ptr_dtor(&hook_call_obj);
 					return 0;
 				}
+				/*
+				*	add to objects
+				*/
+				zval *objects = zend_read_property(cii_hooks_ce, cii_hooks_obj, "objects", 7, 1 TSRMLS_CC);
+				Z_ADDREF_P(hook_call_obj);
+				zend_hash_update(Z_ARRVAL_P(objects), Z_STRVAL_PP(class), Z_STRLEN_PP(class)+1, &hook_call_obj, sizeof(zval *), NULL);
+				/*
+				*	free used memory
+				*/
 				efree(function_lower);
 				zval_ptr_dtor(&hook_call_obj);
 			}else{
@@ -223,6 +270,9 @@ ZEND_API int cii_run_hook(HashTable *data)
 			}
 			efree(class_lower);
 		}else{
+			/*
+			*	hook is a function
+			*/
 			char *function_lower = zend_str_tolower_dup(Z_STRVAL_PP(function), Z_STRLEN_PP(function));
 			if (zend_hash_exists(EG(function_table), function_lower, Z_STRLEN_PP(function)+1)) {
 				zval *hook_call_retval;
@@ -276,8 +326,6 @@ ZEND_API int cii_call_hook(zend_class_entry *cii_hooks_ce, zval *cii_hooks_obj, 
 	/*
 	*	call hook function
 	*/
-	//php_printf("type: %d\n", Z_TYPE_PP((zval**)Z_ARRVAL_PP(call_hook)->pListHead->pData));
-	//php_printf("n: %d\n", Z_ARRVAL_PP(call_hook)->nNumOfElements);
 	if( Z_ARRVAL_PP(call_hook)->pListHead && Z_TYPE_PP((zval**)Z_ARRVAL_PP(call_hook)->pListHead->pData) == IS_ARRAY ){
 		HashPosition pos;
 		zval **value;
@@ -288,13 +336,13 @@ ZEND_API int cii_call_hook(zend_class_entry *cii_hooks_ce, zval *cii_hooks_obj, 
 				Z_TYPE_PP(value) != IS_ARRAY ){
 				continue;
 			}
-			if( !cii_run_hook(Z_ARRVAL_PP(value)) ){
+			if( !cii_run_hook(cii_hooks_ce, cii_hooks_obj, Z_ARRVAL_PP(value)) ){
 				return 0;
 			}
 		}
 		return 1;
 	}else{
-		return cii_run_hook(Z_ARRVAL_PP(call_hook));
+		return cii_run_hook(cii_hooks_ce, cii_hooks_obj, Z_ARRVAL_PP(call_hook));
 	}
 }
 /**
@@ -352,7 +400,7 @@ PHP_MINIT_FUNCTION(cii_hooks)
 	 *
 	 * @var array
 	 */
-	zend_declare_property_null(cii_hooks_ce, ZEND_STRL("_objects"), ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(cii_hooks_ce, ZEND_STRL("objects"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	/**
 	 * In progress flag
 	 *
