@@ -109,26 +109,12 @@ ZEND_API int cii_run_hook(zend_class_entry *cii_hooks_ce, zval *cii_hooks_obj, H
 		/*
 		*	check hook's data
 		*/
-		if( class ){
-			if( !function ){
-				return 0;
-			}
-		}
-		if( !function ){
-			return 0;
-		}
+		if( class ){ if( !function ){ return 0; } }
+		if( !function ){ return 0; }
 		char *filename_call;
 		char *filepath_call;
-		if( filename ){
-			filename_call = Z_STRVAL_PP(filename);
-		}else{
-			return 0;
-		}
-		if( filepath ){
-			filepath_call = Z_STRVAL_PP(filepath);
-		}else{
-			filepath_call = "";
-		}
+		if( filename ){ filename_call = Z_STRVAL_PP(filename); }else{ return 0; }
+		if( filepath ){ filepath_call = Z_STRVAL_PP(filepath); }else{ filepath_call = ""; }
 		/*
 		*	init initparams and funcparams
 		*/
