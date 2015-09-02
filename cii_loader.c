@@ -1,6 +1,8 @@
 #include "cii_loader.h"
 
 zend_class_entry *cii_loader_ce;
+extern zend_class_entry *cii_output_ce;
+extern ZEND_API void cii_append_output(zend_class_entry *cii_output_ce, zval *cii_output_obj, char *output_str);
 
 //usefulless.bing mei you sen me ruan yong
 /*ZEND_BEGIN_ARG_INFO_EX(cii_loader_view_arginfo,0,0,1)
@@ -170,16 +172,22 @@ PHP_METHOD(cii_loader,view){
 		}
 	}
 
-	if(is_return){
-		if(php_output_start_user(NULL, 0, PHP_OUTPUT_HANDLER_STDFLAGS TSRMLS_CC) == SUCCESS){
+	if(php_output_start_user(NULL, 0, PHP_OUTPUT_HANDLER_STDFLAGS TSRMLS_CC) == SUCCESS){
+		if(is_return){	
 			cii_loader_import(file, file_len, 0 TSRMLS_CC);
 			php_output_get_contents(return_value TSRMLS_CC);
 			php_output_discard(TSRMLS_C);
 		}else{
-			php_error(E_WARNING, "failed to create buffer");
+			cii_loader_import(file, file_len, 0 TSRMLS_CC);
+			zval *output;
+			MAKE_STD_ZVAL(output);
+			php_output_get_contents(output TSRMLS_CC);
+			cii_append_output(cii_output_ce, load_class("Output", 0, NULL), Z_STRVAL_P(output));
+			zval_ptr_dtor(&output);
+			php_output_discard(TSRMLS_C);
 		}
 	}else{
-		cii_loader_import(file, file_len, 0 TSRMLS_CC);
+		php_error(E_WARNING, "failed to create buffer");
 	}
 
 	efree(file);
