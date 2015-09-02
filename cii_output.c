@@ -66,11 +66,15 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 	char *p = NULL;
 	char *free_output_new = NULL;
 	char retval = 0;
-	*output_new = output;
-	*output_new_len = output_len;
+	char *elapsed_time;
+	char elapsed_time_state;
+	
+	elapsed_time_state = elapsed_time_ex(cii_benchmark_ce, load_class("Benchmark", 0, NULL), "total_execution_time_start", 26, "total_execution_time_end", 24, 4, &elapsed_time);
 	/*
 	*	replace {elapsed_time}
 	*/
+	*output_new = output;
+	*output_new_len = output_len;
 	do{
 		if( p = strstr(*output_new, "{elapsed_time}") ){
 			p[13] = '\0';
@@ -78,7 +82,7 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 			if( retval ){
 				free_output_new = *output_new;
 			}
-			*output_new_len = spprintf(output_new, 0, "%s%s%s", *output_new, "0.0012", &p[14]);
+			*output_new_len = spprintf(output_new, 0, "%s%s%s", *output_new, elapsed_time, &p[14]);
 			if( free_output_new ){
 				efree(free_output_new);
 				free_output_new = NULL;
@@ -109,6 +113,9 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 	/*
 	*	return state. 1 means replaced or 0 means not replaced
 	*/
+	if( elapsed_time_state ){
+		efree(elapsed_time);
+	}
 	return retval;
 }
 /**

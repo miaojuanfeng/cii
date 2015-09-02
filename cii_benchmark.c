@@ -64,6 +64,32 @@ PHP_METHOD(cii_benchmark, mark)
 	zval *marker = zend_read_property(cii_benchmark_ce, getThis(), ZEND_STRL("marker"), 1 TSRMLS_CC);
 	zend_hash_update(Z_ARRVAL_P(marker), name, name_len+1, &microtime, sizeof(zval*), NULL);
 }
+/*
+*	Elapsed time
+*/
+ZEND_API int elapsed_time_ex(zend_class_entry *cii_benchmark_ce, zval *cii_benchmark_obj, char *point1, uint point1_len, char *point2, uint point2_len, char decimals, char **elapsed_time)
+{
+	if( !point1_len ){
+		*elapsed_time = "{elapsed_time}";
+		return 0;
+	}
+	zval *marker = zend_read_property(cii_benchmark_ce, cii_benchmark_obj, ZEND_STRL("marker"), 1 TSRMLS_CC);
+	if( !zend_hash_exists(Z_ARRVAL_P(marker), point1, point1_len+1) ){
+		*elapsed_time = "";
+		return 0;
+	}
+	if( !zend_hash_exists(Z_ARRVAL_P(marker), point2, point2_len+1) ){
+		zval *microtime;
+		MAKE_STD_ZVAL(microtime);
+		ZVAL_DOUBLE(microtime, cii_microtime());
+		zend_hash_update(Z_ARRVAL_P(marker), point2, point2_len+1, &microtime, sizeof(zval*), NULL);
+	}
+	zval **start, **end;
+	zend_hash_find(Z_ARRVAL_P(marker), point1, point1_len+1, (void**)&start);
+	zend_hash_find(Z_ARRVAL_P(marker), point2, point2_len+1, (void**)&end);
+	*elapsed_time =  _php_math_number_format((double)(Z_DVAL_PP(end)-Z_DVAL_PP(start)), decimals, '.', ',');
+	return 1;
+}
 /**
 * Elapsed time
 *
@@ -88,28 +114,25 @@ PHP_METHOD(cii_benchmark, elapsed_time)
 {
 	char *point1 = NULL, *point2 = NULL;
 	uint point1_len, point2_len;
-	long decimals = 4;
+	char decimals = 4;
+	char *elapsed_time;
+	char retval;
 
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &point1, &point1_len, &point2, &point2_len, &decimals) == FAILURE ){
-		RETURN_EMPTY_STRING();
+		WRONG_PARAM_COUNT;
 	}
-	if( !point1_len ){
-		RETURN_STRING("{elapsed_time}", 1);
+
+	//some problem here
+	php_printf("%s\n", point1);
+	php_printf("%d\n", point1_len);
+	php_printf("%s\n", point2);
+	php_printf("%d\n", point2_len);
+	retval = elapsed_time_ex(cii_benchmark_ce, getThis(), point1, point1_len, point2, point2_len, decimals, &elapsed_time);
+	if( retval ){
+		RETURN_STRING(elapsed_time, 0);
+	}else{
+		RETURN_STRING(elapsed_time, 1);
 	}
-	zval *marker = zend_read_property(cii_benchmark_ce, getThis(), ZEND_STRL("marker"), 1 TSRMLS_CC);
-	if( !zend_hash_exists(Z_ARRVAL_P(marker), point1, point1_len+1) ){
-		RETURN_EMPTY_STRING();
-	}
-	if( !zend_hash_exists(Z_ARRVAL_P(marker), point2, point2_len+1) ){
-		zval *microtime;
-		MAKE_STD_ZVAL(microtime);
-		ZVAL_DOUBLE(microtime, cii_microtime());
-		zend_hash_update(Z_ARRVAL_P(marker), point2, point2_len+1, &microtime, sizeof(zval*), NULL);
-	}
-	zval **start, **end;
-	zend_hash_find(Z_ARRVAL_P(marker), point1, point1_len+1, (void**)&start);
-	zend_hash_find(Z_ARRVAL_P(marker), point2, point2_len+1, (void**)&end);
-	RETURN_STRING(_php_math_number_format((double)(Z_DVAL_PP(end)-Z_DVAL_PP(start)), decimals, '.', ','), 0);
 }
 /**
 * Memory Usage

@@ -731,10 +731,22 @@ PHP_FUNCTION(cii_run)
 	/*
 	*	mark total_execution_time_end benchmark
 	*/
-	zval *total_execution_time_end;
+	/*zval *total_execution_time_end;
 	MAKE_STD_ZVAL(total_execution_time_end);
 	ZVAL_DOUBLE(total_execution_time_end, cii_microtime());
-	zend_hash_update(Z_ARRVAL_P(marker), "total_execution_time_end", 25, &total_execution_time_end, sizeof(zval*), NULL);
+	zend_hash_update(Z_ARRVAL_P(marker), "total_execution_time_end", 25, &total_execution_time_end, sizeof(zval*), NULL);*/
+	/*
+	*  Send the final rendered output to the browser
+	*/
+	char *output_new;
+	uint output_new_len;
+	char retval;
+	zval *output = zend_read_property(cii_output_ce, cii_output_obj, "final_output", 12, 1 TSRMLS_CC);
+	retval = cii_display(Z_STRVAL_P(output), Z_STRLEN_P(output), &output_new, &output_new_len TSRMLS_CC);
+	PHPWRITE(output_new, output_new_len);
+	if( retval ){
+		efree(output_new);
+	}
 	/*
 	*  Is there a "post_system" hook?
 	*/
