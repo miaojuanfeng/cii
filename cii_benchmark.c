@@ -121,12 +121,6 @@ PHP_METHOD(cii_benchmark, elapsed_time)
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &point1, &point1_len, &point2, &point2_len, &decimals) == FAILURE ){
 		WRONG_PARAM_COUNT;
 	}
-
-	//some problem here
-	php_printf("%s\n", point1);
-	php_printf("%d\n", point1_len);
-	php_printf("%s\n", point2);
-	php_printf("%d\n", point2_len);
 	retval = elapsed_time_ex(cii_benchmark_ce, getThis(), point1, point1_len, point2, point2_len, decimals, &elapsed_time);
 	if( retval ){
 		RETURN_STRING(elapsed_time, 0);
