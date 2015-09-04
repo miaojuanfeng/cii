@@ -27,7 +27,7 @@ PHP_METHOD(cii_benchmark, __construct)
 	/*
 	*	output log
 	*/
-	php_printf("Info: Benchmark Class Initialized\n");
+	cii_write_log(3, "Benchmark Class Initialized");
 }
 
 static double cii_microtime(){

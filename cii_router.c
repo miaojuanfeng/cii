@@ -62,7 +62,7 @@ PHP_METHOD(cii_router, __construct)
 	/*
 	*	output log
 	*/
-	php_printf("Info: Router Class Initialized\n");
+	cii_write_log(3, "Router Class Initialized");
 }
 
 zend_function_entry cii_router_methods[] = {

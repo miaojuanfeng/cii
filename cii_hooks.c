@@ -30,7 +30,7 @@ PHP_METHOD(cii_hooks, __construct)
 	/*
 	*	output log
 	*/
-	php_printf("Info: Hooks Class Initialized\n");
+	cii_write_log(3, "Hooks Class Initialized");
 	/*
 	*	init cii_hooks::hooks
 	*/

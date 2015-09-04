@@ -134,7 +134,7 @@ set_default_base_url:
 	/*
 	* output log
 	*/
-	php_printf("Info: Config Class Initialized\n");
+	cii_write_log(3, "Config Class Initialized");
 }
 /**
 * Fetch a config file item

@@ -103,7 +103,7 @@ PHP_METHOD(cii_uri, __construct)
 	/*
 	*	output log
 	*/
-	php_printf("Info: URI Class Initialized\n");
+	cii_write_log(3, "URI Class Initialized");
 }
 /**
 * 	Segment Array

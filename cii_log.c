@@ -13,54 +13,89 @@ PHP_METHOD(cii_log, __construct)
 	/*
 	*	output log
 	*/
-	php_printf("Info: Log Class Initialized\n");
-}
-/*
-* php_strtoupper
-*/
-static char* zend_str_toupper_dup(char *s, size_t len)
-{
-	unsigned char *c, *e, *r, *p;
-
-	r = p = (char*)emalloc(sizeof(char)*len+1);
-
-	c = (unsigned char *)s;
-	e = (unsigned char *)c+len;
-
-	while (c < e) {
-		*p = toupper(*c);
-		p++;
-		c++;
-	}
-	*p = '\0';
-	return r;
+	cii_write_log(3, "Log Class Initialized");
 }
 /*
 * Write Log File
 */
-ZEND_API int cii_write_log(char *level, char *message)
+ZEND_API int cii_write_log(int level, char *message)
 {
+	/*
+	* 0 = Disables logging, Error logging TURNED OFF
+	* 1 = Error Messages (including PHP errors)
+	* 2 = Debug Messages
+	* 3 = Informational Messages
+	* 4 = All Messages
+	*/
+	static int log_threshold = 4;
+	/*
+	*	if disables logging
+	*/
+	if( !log_threshold ){
+		return 0;
+	}
+	/*
+	*	if level overflow
+	*/
+	if( level > log_threshold ){
+		return 0;
+	}
+	/*
+	*	get time
+	*/
 	time_t t = time(NULL);
+	/*
+	*	set filename
+	*/
 	char filename[19];   
 	strftime(filename, 19, "log-%Y-%m-%d.php", localtime(&t));
-
+	/*
+	*	set filepath
+	*/
 	char *filepath;
 	if( !CII_G(apppath) ){
 		cii_get_apppath();
 	}
 	spprintf(&filepath, 0, "%s%s%s", CII_G(apppath), "logs/", filename);
-	FILE *f;
-	f = fopen(filepath, "a");
+	/*
+	*	set level title
+	*/
+	char *level_upper;
+	if( level == 1 ){
+		level_upper = "ERROR";
+	}else if( level == 2 ){
+		level_upper = "DEBUG";
+	}else if( level == 3 ){
+		level_upper = "INFO";
+	}else if( level == 4 ){
+		level_upper = "ALL";
+	}
+	/*
+	*	get time
+	*/
 	char time[20];
 	strftime(time, 20, "%Y-%m-%d %H:%M:%S", localtime(&t));
-	char *level_upper = zend_str_toupper_dup(level, strlen(level));
+	/*
+	*	open file
+	*/
+	FILE *f;
+	f = fopen(filepath, "a");
+	/*
+	*	write log
+	*/
 	char *log;
 	spprintf(&log, 0, "%s%s%s%s%s%s", level_upper, " - ", time, " --> ", message, "\r\n");
 	fputs(log, f);
+	/*
+	*	free used memory
+	*/
+	efree(log);
 	fclose(f);
 	efree(filepath);
-	efree(log);
-	efree(level_upper);
+	/*
+	* return state
+	*/
+	return 1;
 }
 /**
 * Write Log File
@@ -75,7 +110,34 @@ ZEND_API int cii_write_log(char *level, char *message)
 */
 PHP_METHOD(cii_log, write_log)
 {
-	cii_write_log("Info", "load");
+	char *level;
+	uint level_len;
+	char *message;
+	uint message_len;
+	char *log_threshold[4] = {"error", "debug", "info", "all"};
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss" ,&level, &level_len, &message, &message_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	char *level_lower = zend_str_tolower_dup(level, level_len);
+	int p = -1;
+	int i;
+	for (i = 0; i < 4; i++)
+	{
+		if( !strcmp(level_lower, log_threshold[i]) ){
+			p = i+1;
+			break;
+		}
+	}
+	efree(level_lower);
+	if( p >= 0 ){
+		char retval;
+		retval = cii_write_log(p, message);
+		if( return_value_used ){
+			RETURN_BOOL(retval);
+		}
+	}else{
+		RETURN_BOOL(0);
+	}
 }	
 
 zend_function_entry cii_log_methods[] = {

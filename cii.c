@@ -697,7 +697,7 @@ PHP_FUNCTION(cii_run)
 		/*
 		*	cii_controller __construct function
 		*/
-		php_printf("Info: Controller Class Initialized\n");
+		cii_write_log(3, "Controller Class Initialized");
 		/*
 		*  Is there a "pre_controller" hook?
 		*/

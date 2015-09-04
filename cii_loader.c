@@ -119,7 +119,7 @@ PHP_METHOD(cii_loader, __construct){
 	/*
 	* output log
 	*/
-	php_printf("Info: Loader Class Initialized\n");
+	cii_write_log(3, "Loader Class Initialized");
 }
 
 PHP_METHOD(cii_loader, __get)
@@ -312,7 +312,7 @@ PHP_METHOD(cii_loader, model){
 		/*
 		*	cii_model __construct function
 		*/
-		php_printf("Info: Model Class Initialized\n");
+		cii_write_log(3, "Model Class Initialized");
 		/*
 		*	call new object construct function
 		*/
