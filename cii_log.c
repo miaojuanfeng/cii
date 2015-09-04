@@ -24,7 +24,6 @@ static char* zend_str_toupper_dup(char *s, size_t len)
 
 	r = p = (char*)emalloc(sizeof(char)*len+1);
 
-
 	c = (unsigned char *)s;
 	e = (unsigned char *)c+len;
 
