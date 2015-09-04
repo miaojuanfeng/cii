@@ -60,6 +60,9 @@ static void php_cii_globals_ctor(zend_cii_globals *cii_globals)
 	cii_globals->is_loaded = NULL;
 	cii_globals->configs = NULL;
 	cii_globals->apppath = NULL;
+	cii_globals->output_replace_elapsed_time = 0;
+	cii_globals->output_replace_memory_usage = 0;
+	cii_globals->output_replace_memory_peak = 0;
 }
 
 static void php_cii_globals_dtor(zend_cii_globals *cii_globals)

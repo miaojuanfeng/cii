@@ -70,6 +70,7 @@ PHP_METHOD(cii_benchmark, mark)
 ZEND_API int elapsed_time_ex(zend_class_entry *cii_benchmark_ce, zval *cii_benchmark_obj, char *point1, uint point1_len, char *point2, uint point2_len, char decimals, char **elapsed_time)
 {
 	if( !point1_len ){
+		CII_G(output_replace_elapsed_time)++;
 		*elapsed_time = "{elapsed_time}";
 		return 0;
 	}
@@ -87,7 +88,7 @@ ZEND_API int elapsed_time_ex(zend_class_entry *cii_benchmark_ce, zval *cii_bench
 	zval **start, **end;
 	zend_hash_find(Z_ARRVAL_P(marker), point1, point1_len+1, (void**)&start);
 	zend_hash_find(Z_ARRVAL_P(marker), point2, point2_len+1, (void**)&end);
-	*elapsed_time =  _php_math_number_format((double)(Z_DVAL_PP(end)-Z_DVAL_PP(start)), decimals, '.', ',');
+	*elapsed_time = _php_math_number_format((double)(Z_DVAL_PP(end)-Z_DVAL_PP(start)), decimals, '.', ',');
 	return 1;
 }
 /**
@@ -112,13 +113,13 @@ ZEND_API int elapsed_time_ex(zend_class_entry *cii_benchmark_ce, zval *cii_bench
 */
 PHP_METHOD(cii_benchmark, elapsed_time)
 {
-	char *point1 = NULL, *point2 = NULL;
-	uint point1_len, point2_len;
+	char *point1 = "", *point2 = "";
+	uint point1_len = 0, point2_len = 0;
 	char decimals = 4;
 	char *elapsed_time;
 	char retval;
 
-	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &point1, &point1_len, &point2, &point2_len, &decimals) == FAILURE ){
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|ssl", &point1, &point1_len, &point2, &point2_len, &decimals) == FAILURE ){
 		WRONG_PARAM_COUNT;
 	}
 	retval = elapsed_time_ex(cii_benchmark_ce, getThis(), point1, point1_len, point2, point2_len, decimals, &elapsed_time);
@@ -143,7 +144,30 @@ PHP_METHOD(cii_benchmark, elapsed_time)
 */
 PHP_METHOD(cii_benchmark, memory_usage)
 {
-	RETURN_STRING("{memory_usage}", 1);
+	if( return_value_used ){
+		CII_G(output_replace_memory_usage)++;
+		RETURN_STRING("{memory_usage}", 1);
+	}
+}
+/**
+* Memory Peak
+*
+* Simply returns the {memory_peak} marker.
+*
+* This permits it to be put it anywhere in a template
+* without the memory being calculated until the end.
+* The output class will swap the real value for this variable.
+*
+* @return	string	'{memory_peak}'
+*
+* public function memory_peak()
+*/
+PHP_METHOD(cii_benchmark, memory_peak)
+{
+	if( return_value_used ){
+		CII_G(output_replace_memory_peak)++;
+		RETURN_STRING("{memory_peak}", 1);
+	}
 }
 
 zend_function_entry cii_benchmark_methods[] = {
@@ -151,6 +175,7 @@ zend_function_entry cii_benchmark_methods[] = {
 	PHP_ME(cii_benchmark, mark, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_benchmark, elapsed_time, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_benchmark, memory_usage, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_benchmark, memory_peak, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 

@@ -52,6 +52,12 @@ ZEND_BEGIN_MODULE_GLOBALS(cii)
   *   global path
   */
   char *apppath;
+  /*
+  *   output replace
+  */
+  uint output_replace_elapsed_time;
+  uint output_replace_memory_usage;
+  uint output_replace_memory_peak;
 ZEND_END_MODULE_GLOBALS(cii)
 
 

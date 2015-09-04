@@ -14,6 +14,10 @@ ZEND_BEGIN_ARG_INFO_EX(cii_model___get_arginfo, 0, 0, 1)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(cii_loader___get_arginfo, 0, 0, 1)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
 #define CII_STORE_EG_ENVIRON() \
 	{ \
 		zval ** __old_return_value_pp   = EG(return_value_ptr_ptr); \
@@ -31,11 +35,11 @@ PHP_FUNCTION(cii_model___get)
 	char *key;
 	uint key_len;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s" ,&key, &key_len) == FAILURE) {
-		return;
+		WRONG_PARAM_COUNT;
 	}
 	zval *value = zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), key, key_len, 1 TSRMLS_CC);
 	RETURN_ZVAL(value, 1, 0);
-}	
+}
 
 
 ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
@@ -95,7 +99,7 @@ ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 	return 0;
 }
 
-PHP_METHOD(cii_loader,__construct){
+PHP_METHOD(cii_loader, __construct){
 	/*
 	* init cii_loader::_ob_level
 	*/
@@ -118,7 +122,18 @@ PHP_METHOD(cii_loader,__construct){
 	php_printf("Info: Loader Class Initialized\n");
 }
 
-PHP_METHOD(cii_loader,view){
+PHP_METHOD(cii_loader, __get)
+{
+	char *key;
+	uint key_len;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s" ,&key, &key_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	zval *value = zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), key, key_len, 1 TSRMLS_CC);
+	RETURN_ZVAL(value, 1, 0);
+}
+
+PHP_METHOD(cii_loader, view){
 	char *view;
 	uint view_len;
 	HashTable *data = NULL;
@@ -456,7 +471,6 @@ PHP_METHOD(cii_loader, database){
 		zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), ZEND_STRL("db"), db_obj TSRMLS_CC);
 	}	
 	
-
 	zval *func_name;
 	zval *retval;
 	MAKE_STD_ZVAL(func_name);
@@ -475,6 +489,7 @@ PHP_METHOD(cii_loader, database){
 
 zend_function_entry cii_loader_methods[] = {
 	PHP_ME(cii_loader, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(cii_loader, __get, cii_loader___get_arginfo, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader, view, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader, model, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader, helper, NULL, ZEND_ACC_PUBLIC)

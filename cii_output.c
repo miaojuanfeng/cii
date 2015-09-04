@@ -75,7 +75,10 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 	*/
 	*output_new = output;
 	*output_new_len = output_len;
-	do{
+	//debug
+	//double start = cii_microtime();
+	//debug
+	while(CII_G(output_replace_elapsed_time)--){
 		if( p = strstr(*output_new, "{elapsed_time}") ){
 			p[13] = '\0';
 			p[0]  = '\0';
@@ -89,11 +92,11 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 			}
 			retval = 1;
 		}
-	}while(p);
+	}
 	/*
 	*	replace {memory_usage}
 	*/
-	do{
+	while(CII_G(output_replace_memory_usage)--){
 		if( p = strstr(*output_new, "{memory_usage}") ){
 			p[13] = '\0';
 			p[0]  = '\0';
@@ -109,10 +112,34 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 			}
 			retval = 1;
 		}
-	}while(p);
+	}
+	/*
+	*	replace {memory_peak}
+	*/
+	while(CII_G(output_replace_memory_peak)--){
+		if( p = strstr(*output_new, "{memory_peak}") ){
+			p[12] = '\0';
+			p[0]  = '\0';
+			if( retval ){
+				free_output_new = *output_new;
+			}
+			char *memory = _php_math_number_format((double)zend_memory_peak_usage(0 TSRMLS_DC)/1024/1024, 2, '.', ',');
+			*output_new_len = spprintf(output_new, 0, "%s%s%s%s", *output_new, memory, "MB", &p[14]);
+			efree(memory);
+			if( free_output_new ){
+				efree(free_output_new);
+				free_output_new = NULL;
+			}
+			retval = 1;
+		}
+	}
 	/*
 	*	return state. 1 means replaced or 0 means not replaced
 	*/
+	//debug
+	//double end = cii_microtime();
+	//php_printf("time: %f\n", end-start);
+	//debug
 	if( elapsed_time_state ){
 		efree(elapsed_time);
 	}
