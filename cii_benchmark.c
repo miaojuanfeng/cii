@@ -123,11 +123,13 @@ PHP_METHOD(cii_benchmark, elapsed_time)
 		WRONG_PARAM_COUNT;
 	}
 	retval = elapsed_time_ex(cii_benchmark_ce, getThis(), point1, point1_len, point2, point2_len, decimals, &elapsed_time);
-	if( retval ){
-		RETURN_STRING(elapsed_time, 0);
-	}else{
-		RETURN_STRING(elapsed_time, 1);
-	}
+	if( return_value_used ){
+		if( retval ){
+			RETURN_STRING(elapsed_time, 0);
+		}else{
+			RETURN_STRING(elapsed_time, 1);
+		}
+	}	
 }
 /**
 * Memory Usage
