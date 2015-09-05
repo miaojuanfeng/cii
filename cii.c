@@ -34,7 +34,8 @@
 #include "cii_benchmark.c"
 #include "cii_hooks.c"
 #include "cii_output.c"
-#include "cii_log.c"  
+#include "cii_log.c"
+#include "cii_input.c"   
 
 
 ZEND_DECLARE_MODULE_GLOBALS(cii)
@@ -89,6 +90,7 @@ PHP_MINIT_FUNCTION(cii)
 	ZEND_MINIT(cii_hooks)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_output)(INIT_FUNC_ARGS_PASSTHRU);
 	ZEND_MINIT(cii_log)(INIT_FUNC_ARGS_PASSTHRU);
+	ZEND_MINIT(cii_input)(INIT_FUNC_ARGS_PASSTHRU);
 	return SUCCESS;
 }
 
@@ -534,6 +536,19 @@ PHP_FUNCTION(cii_run)
 	}
 	is_loaded("Output");
 	/*
+	* 	load CII_Input object
+	*/
+	zval *cii_input_obj;
+	MAKE_STD_ZVAL(cii_input_obj);
+	object_init_ex(cii_input_obj, cii_input_ce);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Input", 6, &cii_input_obj, sizeof(zval *), NULL);
+	if (zend_hash_exists(&cii_input_ce->function_table, "__construct", 12)) {
+		zval *cii_input_retval;
+		CII_CALL_USER_METHOD_EX(&cii_input_obj, "__construct", &cii_input_retval, 0, NULL);
+		zval_ptr_dtor(&cii_input_retval);
+	}	
+	is_loaded("Input");
+	/*
 	* 	load CII_Lang object
 	*/
 	zval *cii_lang_obj;
@@ -660,11 +675,16 @@ PHP_FUNCTION(cii_run)
 						}
 						break;
 					case 8:
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "Input", 6) ){
+							zend_update_property(*run_class_ce, run_obj, "Input", 5, *exist_object TSRMLS_CC);
+						}
+						break;	
+					case 9:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "lang", 5) ){
 							zend_update_property(*run_class_ce, run_obj, "lang", 4, *exist_object TSRMLS_CC);
 						}
 						break;
-					case 9:
+					case 10:
 						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "load", 5) ){
 							zend_update_property(*run_class_ce, run_obj, "load", 4, *exist_object TSRMLS_CC);
 						}
