@@ -79,7 +79,11 @@ ZEND_API int cii_write_log(int level, char *message)
 	*	open file
 	*/
 	FILE *f;
-	f = fopen(filepath, "a");
+	if( (f = fopen(filepath, "a")) == NULL ){
+		php_error(E_WARNING, "Cannot open log file: logs/%s", filename);
+		efree(filepath);
+		return 0;
+	}
 	/*
 	*	write log
 	*/

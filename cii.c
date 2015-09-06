@@ -418,7 +418,7 @@ PHP_FUNCTION(cii_is_https)
 }
 
 PHP_FUNCTION(cii_run)
-{
+{	
 	if( !CII_G(apppath) ){
 		cii_get_apppath();
 	}
@@ -675,8 +675,8 @@ PHP_FUNCTION(cii_run)
 						}
 						break;
 					case 8:
-						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "Input", 6) ){
-							zend_update_property(*run_class_ce, run_obj, "Input", 5, *exist_object TSRMLS_CC);
+						if( !zend_hash_exists(&(*run_class_ce)->properties_info, "input", 6) ){
+							zend_update_property(*run_class_ce, run_obj, "input", 5, *exist_object TSRMLS_CC);
 						}
 						break;	
 					case 9:

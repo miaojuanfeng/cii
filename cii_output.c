@@ -124,7 +124,7 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 				free_output_new = *output_new;
 			}
 			char *memory = _php_math_number_format((double)zend_memory_peak_usage(0 TSRMLS_DC)/1024/1024, 2, '.', ',');
-			*output_new_len = spprintf(output_new, 0, "%s%s%s%s", *output_new, memory, "MB", &p[14]);
+			*output_new_len = spprintf(output_new, 0, "%s%s%s%s", *output_new, memory, "MB", &p[13]);
 			efree(memory);
 			if( free_output_new ){
 				efree(free_output_new);
