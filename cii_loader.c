@@ -121,7 +121,7 @@ PHP_METHOD(cii_loader, __construct){
 	*/
 	cii_write_log(3, "Loader Class Initialized");
 }
-
+/* PHP_ME_MAPPING( cii_loader, __get, NULL) */
 PHP_METHOD(cii_loader, __get)
 {
 	char *key;
@@ -231,32 +231,38 @@ PHP_METHOD(cii_loader, model){
 	uint name_len;
 	char *file;
 	uint file_len;
-
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s!", &model, &model_len, &name, &name_len) == FAILURE){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
-
+	/*
+	*	no model specify, just return this
+	*/
 	if(!model_len){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
-
+	/*
+	*	model filepath
+	*/
 	if( !CII_G(apppath) ){
 		cii_get_apppath();
 	}
 	file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "models/", model, ".php");
-
+	/*
+	*	is already included
+	*/
 	if (zend_hash_exists(&EG(included_files), file, file_len + 1)){
 		efree(file);
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
-
+	/*
+	*	include file
+	*/
 	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
-
 	cii_loader_import(file, file_len, 0 TSRMLS_CC);
-
 	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-
-	//add new object property to cii_controller class
+	/*
+	* add new object property to cii_controller class
+	*/
 	zend_class_entry **ce;
 	char *model_lower = zend_str_tolower_dup(model, model_len);
 	if( zend_hash_find(CG(class_table), model_lower, model_len+1, (void**)&ce) == SUCCESS ){
@@ -323,8 +329,14 @@ PHP_METHOD(cii_loader, model){
 		}
 		zval_ptr_dtor(&new_object);
 	}
+	/*
+	*	free used memory
+	*/
 	efree(model_lower);
 	efree(file);
+	/*
+	*	return this
+	*/
 	RETURN_ZVAL(getThis(), 1, 0);
 }
 /**

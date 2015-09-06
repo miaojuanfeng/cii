@@ -2,6 +2,15 @@
 
 zend_class_entry *cii_router_ce;
 
+/**
+* Class constructor
+*
+* Runs the route mapping function.
+*
+* @return	void
+*
+* public function __construct()
+*/
 PHP_METHOD(cii_router, __construct)
 {
 	/*
@@ -64,9 +73,69 @@ PHP_METHOD(cii_router, __construct)
 	*/
 	cii_write_log(3, "Router Class Initialized");
 }
+/**
+* Set class name
+*
+* @param	string	$class	Class name
+* @return	void
+*
+* public function set_class($class)
+*/
+PHP_METHOD(cii_router, set_class)
+{
+	zval *class;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &class) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+	zend_update_property(cii_router_ce, getThis(), ZEND_STRL("class"), class TSRMLS_CC);
+}
+/**
+* Fetch the current class
+*
+* @deprecated	3.0.0	Read the 'class' property instead
+* @return	string
+*
+* public function fetch_class()
+*/
+PHP_METHOD(cii_router, fetch_class)
+{
+	RETURN_ZVAL(zend_read_property(cii_router_ce, getThis(), ZEND_STRL("class"), 1 TSRMLS_CC), 1, 0);
+}
+/**
+* Set method name
+*
+* @param	string	$method	Method name
+* @return	void
+*
+* public function set_method($method)
+*/
+PHP_METHOD(cii_router, set_method)
+{
+	zval *method;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &method) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+	zend_update_property(cii_router_ce, getThis(), ZEND_STRL("method"), method TSRMLS_CC);
+}
+/**
+* Fetch the current method
+*
+* @deprecated	3.0.0	Read the 'method' property instead
+* @return	string
+*
+* public function fetch_method()
+*/
+PHP_METHOD(cii_router, fetch_method)
+{
+	RETURN_ZVAL(zend_read_property(cii_router_ce, getThis(), ZEND_STRL("method"), 1 TSRMLS_CC), 1, 0);
+}
 
 zend_function_entry cii_router_methods[] = {
 	PHP_ME(cii_router, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(cii_router, set_class, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_router, fetch_class, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_router, set_method, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_router, fetch_method, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 

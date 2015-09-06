@@ -106,6 +106,63 @@ PHP_METHOD(cii_uri, __construct)
 	cii_write_log(3, "URI Class Initialized");
 }
 /**
+* Fetch URI Segment
+*
+* @see		CI_URI::$segments
+* @param	int		$n		Index
+* @param	mixed		$no_result	What to return if the segment index is not found
+* @return	mixed
+*
+* public function segment($n, $no_result = NULL)
+*/
+PHP_METHOD(cii_uri, segment)
+{
+	long index;
+	zval *no_result = NULL;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|z!", &index, &no_result) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+	zval *segments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("segments"), 1 TSRMLS_CC);
+	zval **value;
+	if( zend_hash_index_find(Z_ARRVAL_P(segments), index, (void**)&value) != FAILURE ){
+		RETURN_ZVAL(*value, 1, 0);
+	}
+	if( no_result ){
+		RETURN_ZVAL(no_result, 1, 0);
+	}
+}
+/**
+* Fetch URI "routed" Segment
+*
+* Returns the re-routed URI segment (assuming routing rules are used)
+* based on the index provided. If there is no routing, will return
+* the same result as CI_URI::segment().
+*
+* @see		CI_URI::$rsegments
+* @see		CI_URI::segment()
+* @param	int		$n		Index
+* @param	mixed		$no_result	What to return if the segment index is not found
+* @return	mixed
+*
+* public function rsegment($n, $no_result = NULL)
+*/
+PHP_METHOD(cii_uri, rsegment)
+{
+	long index;
+	zval *no_result = NULL;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|z!", &index, &no_result) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+	zval *rsegments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("rsegments"), 1 TSRMLS_CC);
+	zval **value;
+	if( zend_hash_index_find(Z_ARRVAL_P(rsegments), index, (void**)&value) != FAILURE ){
+		RETURN_ZVAL(*value, 1, 0);
+	}
+	if( no_result ){
+		RETURN_ZVAL(no_result, 1, 0);
+	}
+}
+/**
 * 	Segment Array
 *
 *	@return	array	CI_URI::$segments
@@ -153,13 +210,28 @@ PHP_METHOD(cii_uri, total_rsegments)
 	zval *rsegments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("rsegments"), 1 TSRMLS_CC);
 	RETURN_LONG(zend_hash_num_elements(Z_ARRVAL_P(rsegments)));
 }
+/**
+* Fetch URI string
+*
+* @return	string	CI_URI::$uri_string
+*
+* public function uri_string()
+*/
+PHP_METHOD(cii_uri, uri_string)
+{
+	zval *uri_string = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("uri_string"), 1 TSRMLS_CC);
+	RETURN_ZVAL(uri_string, 1, 0);
+}
 
 zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(cii_uri, segment, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_uri, rsegment, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, segment_array, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, rsegment_array, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, total_segments, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, total_rsegments, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_uri, uri_string, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
