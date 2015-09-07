@@ -383,6 +383,31 @@ PHP_FUNCTION(cii_load_class)
 		Z_ADDREF_P(*return_value_ptr);
 	}	
 }
+/*
+* Is HTTPS?
+*/
+ZEND_API int cii_is_https(){
+	zval **https, **http_x_forwarded_proto, **http_front_end_https;
+
+	zval **server = &PG(http_globals)[TRACK_VARS_SERVER];
+
+	if( zend_hash_find(Z_ARRVAL_PP(server), "HTTPS", 6, (void**)&https) != FAILURE){
+		char *strlower = zend_str_tolower_dup(Z_STRVAL_PP(https), Z_STRLEN_PP(https));
+		if( strcmp(strlower, "off") ){
+			return 1;
+		}
+	}else if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_X_FORWARDED_PROTO", 23, (void**)&http_x_forwarded_proto) != FAILURE){
+		if( !strcmp(Z_STRVAL_PP(http_x_forwarded_proto), "https") ){
+			return 1;
+		}
+	}else if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_FRONT_END_HTTPS", 21, (void**)&http_front_end_https) != FAILURE){
+		char *strlower = zend_str_tolower_dup(Z_STRVAL_PP(http_front_end_https), Z_STRLEN_PP(http_front_end_https));
+		if( strcmp(strlower, "off") ){
+			return 1;
+		}
+	}
+	return 0;
+}
 /**
 * Is HTTPS?
 *
@@ -395,26 +420,7 @@ PHP_FUNCTION(cii_load_class)
 */
 PHP_FUNCTION(cii_is_https)
 {
-	zval **https, **http_x_forwarded_proto, **http_front_end_https;
-
-	zval **server = &PG(http_globals)[TRACK_VARS_SERVER];
-
-	if( zend_hash_find(Z_ARRVAL_PP(server), "HTTPS", 6, (void**)&https) != FAILURE){
-		char *strlower = zend_str_tolower_dup(Z_STRVAL_PP(https), Z_STRLEN_PP(https));
-		if( strcmp(strlower, "off") ){
-			RETURN_TRUE;
-		}
-	}else if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_X_FORWARDED_PROTO", 23, (void**)&http_x_forwarded_proto) != FAILURE){
-		if( !strcmp(Z_STRVAL_PP(http_x_forwarded_proto), "https") ){
-			RETURN_TRUE;
-		}
-	}else if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_FRONT_END_HTTPS", 21, (void**)&http_front_end_https) != FAILURE){
-		char *strlower = zend_str_tolower_dup(Z_STRVAL_PP(http_front_end_https), Z_STRLEN_PP(http_front_end_https));
-		if( strcmp(strlower, "off") ){
-			RETURN_TRUE;
-		}
-	}
-	RETURN_FALSE;
+	RETURN_BOOL(cii_is_https());
 }
 
 PHP_FUNCTION(cii_run)
