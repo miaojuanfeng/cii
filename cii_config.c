@@ -37,14 +37,19 @@ PHP_METHOD(cii_config, __construct)
 	php_printf("base_url type:%d\n",Z_TYPE_P(*base_url_value));
 	php_printf("base_url value:%s\n",Z_STRVAL_P(*base_url_value));
 	php_printf("base_url len:%d\n",Z_STRLEN_P(*base_url_value));*/
+
+	//debug
+	double start = cii_microtime();
+	//debug
+
 	if( zend_hash_find(Z_ARRVAL_P(get_config_result), "base_url", sizeof("base_url"), (void**)&base_url_value) == FAILURE ||
-		Z_TYPE_PP(base_url_value) == IS_STRING && Z_STRLEN_PP(base_url_value) == 0 && !strcmp(Z_STRVAL_PP(base_url_value), "") ){
-		zval **server = &PG(http_globals)[TRACK_VARS_SERVER];
+		Z_TYPE_PP(base_url_value) == IS_STRING && Z_STRLEN_PP(base_url_value) == 0 ){
+		zval *server = PG(http_globals)[TRACK_VARS_SERVER];
 		zval **http_host;
 		zval *default_base_url;
 		MAKE_STD_ZVAL(default_base_url);
 		//php_printf("base_url is empty\n");
-		if( zend_hash_find(Z_ARRVAL_PP(server), "HTTP_HOST", sizeof("HTTP_HOST"), (void**)&http_host) != FAILURE ){
+		if( zend_hash_find(Z_ARRVAL_P(server), "HTTP_HOST", sizeof("HTTP_HOST"), (void**)&http_host) != FAILURE ){
 			//php_printf("http_host:%s\n",Z_STRVAL_PP(http_host));
 			zval *preg_match_result;
 			zval *preg;
@@ -65,8 +70,8 @@ PHP_METHOD(cii_config, __construct)
 			//php_printf("value:%ld\n",Z_LVAL_P(preg_match_result));
 			if( Z_LVAL_P(preg_match_result) ){
 				zval **script_name, **script_filename;
-			    if( zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_NAME", sizeof("SCRIPT_NAME"), (void**)&script_name) == FAILURE ||
-			    	zend_hash_find(Z_ARRVAL_PP(server), "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void**)&script_filename) == FAILURE ){
+			    if( zend_hash_find(Z_ARRVAL_P(server), "SCRIPT_NAME", sizeof("SCRIPT_NAME"), (void**)&script_name) == FAILURE ||
+			    	zend_hash_find(Z_ARRVAL_P(server), "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void**)&script_filename) == FAILURE ){
 			    	//php_printf("not found!\n");
 			    	//return;
 			    	goto set_default_base_url;
@@ -131,6 +136,13 @@ set_default_base_url:
 		zend_hash_update(Z_ARRVAL_P(get_config_result), "base_url", 9, &default_base_url, sizeof(zval *), NULL);
 	}
 	zval_ptr_dtor(&get_config_result);
+
+	//debug
+	double end = cii_microtime();
+	php_printf("config time: %f\n", end-start);
+	//debug
+
+
 	/*
 	* output log
 	*/

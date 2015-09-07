@@ -126,6 +126,7 @@ ZEND_END_MODULE_GLOBALS(cii)
 ZEND_API zval* load_class(char *class, uint param_count, zval **params[]);
 static zval* cii_get_config(); 
 static void cii_get_apppath();
+static double cii_microtime();
 
 #endif	/* PHP_CII_H */
 
