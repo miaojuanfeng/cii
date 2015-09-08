@@ -152,7 +152,7 @@ ZEND_END_ARG_INFO()
 *
 * function &get_instance()
 */
-PHP_FUNCTION(cii_get_instance)
+PHP_FUNCTION(get_instance)
 {
 	if( return_value_used && CII_G(cii_controller_ce) && CII_G(cii_controller) ){
 		zval_ptr_dtor(return_value_ptr);
@@ -710,7 +710,7 @@ PHP_FUNCTION(cii_run)
 			func.internal_function.num_args = 0;
 			func.internal_function.required_num_args = 0;
 			func.internal_function.arg_info = (zend_arg_info*)cii_get_instance_arginfo+1;
-			func.internal_function.handler = ZEND_FN(cii_get_instance);
+			func.internal_function.handler = ZEND_FN(get_instance);
 			if( zend_hash_add(&(*run_class_ce)->function_table, "get_instance", 13, &func, sizeof(zend_function), NULL) == FAILURE ){
 				php_error(E_WARNING, "add get_instance method failed");
 			}
@@ -725,7 +725,7 @@ PHP_FUNCTION(cii_run)
 		*/
 		cii_write_log(3, "Controller Class Initialized");
 		/*
-		*  Is there a "pre_controller" hook?
+		*   Is there a "pre_controller" hook?
 		*/
 		cii_call_hook(cii_hooks_ce, cii_hooks_obj, "pre_controller", 15);
 		/*
@@ -803,7 +803,7 @@ PHP_FUNCTION(cii_run)
 }
 
 const zend_function_entry cii_functions[] = {
-	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
+	PHP_FE(get_instance, cii_get_instance_arginfo)
 	PHP_FE(cii_get_config, cii_get_config_arginfo)
 	PHP_FE(cii_run, NULL)
 	PHP_FE(cii_is_https, NULL)
