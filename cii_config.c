@@ -45,7 +45,7 @@ PHP_METHOD(cii_config, __construct)
 			p = strrchr(Z_STRVAL_PP(script_name), '/')+1;
 			orig = *p;
 			*p = '\0';
-			if(!cii_is_https()){
+			if( !cii_is_https() ){
 				is_https = "http://";
 			}else{
 				is_https = "https://";
@@ -63,6 +63,31 @@ PHP_METHOD(cii_config, __construct)
 	*/
 	cii_write_log(3, "Config Class Initialized");
 }
+/*
+*	cii_config_item
+*/
+ZEND_API zval* cii_config_item(char *item, uint item_len, char *index, uint index_len)
+{
+	zval **value;
+	zval *config = cii_get_config();
+	if( !index ){
+		if( zend_hash_find(Z_ARRVAL_P(config), item, item_len+1, (void**)&value) == FAILURE ){
+			return NULL;
+		}else{
+			return *value;
+		}
+	}
+	if( zend_hash_find(Z_ARRVAL_P(config), index, index_len+1, (void**)&value) == FAILURE ){
+		return NULL;
+	}else{
+		zval **item_value;
+		if( zend_hash_find(Z_ARRVAL_PP(value), item, item_len+1, (void**)&item_value) == FAILURE ){
+			return NULL;
+		}else{
+			return *item_value;
+		}	
+	}
+}
 /**
 * Fetch a config file item
 *
@@ -75,34 +100,69 @@ PHP_METHOD(cii_config, __construct)
 //notice: if item or index is long, will return null.
 PHP_METHOD(cii_config, item)
 {
-	char *item, *index = NULL;
-	uint item_len, index_len;
-	zval **value;
-	zval *config;
-
+	char *item = NULL;
+	char *index = NULL;
+	uint item_len = 0;
+	uint index_len = 0;
+	zval *retval;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &item, &item_len, &index, &index_len) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-
-	config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
-
-	if( !index ){
-		if( zend_hash_find(Z_ARRVAL_P(config), item, item_len+1, (void**)&value) == FAILURE ){
-			return;
-		}else{
-			RETURN_ZVAL(*value, 1, 0);
-		}
+	if( retval = cii_config_item(item, item_len, index, index_len) ){
+		RETURN_ZVAL(retval, 1, 0);
 	}
-	
-	if( zend_hash_find(Z_ARRVAL_P(config), index, index_len+1, (void**)&value) == FAILURE ){
-		RETURN_NULL();
-	}else{
-		zval **item_value;
-		if( zend_hash_find(Z_ARRVAL_PP(value), item, item_len+1, (void**)&item_value) == FAILURE ){
-			return;
+}
+/*
+*	cii_config_slash_item
+*/
+ZEND_API char* cii_config_slash_item(char *item, uint item_len, char *index, uint index_len, char *need_free)
+{
+	zval *retval;
+	*need_free = 0;
+	if( retval = cii_config_item(item, item_len, index, index_len) ){
+		if( Z_TYPE_P(retval) != IS_STRING ){
+			convert_to_string(retval);
+		}
+		if( !Z_STRLEN_P(retval) ){
+			return "";
+		}
+		if( *(Z_STRVAL_P(retval)+Z_STRLEN_P(retval)-1) != '/' ){
+			char *slash_item;
+			spprintf(&slash_item, 0, "%s%s", Z_STRVAL_P(retval), "/");
+			*need_free = 1;
+			return slash_item;
+		}
+		return Z_STRVAL_P(retval);
+	}
+	return NULL;
+}	
+/**
+* Fetch a config file item with slash appended (if not empty)
+*
+* @param	string		$item	Config item name
+* @param	string		$index	Index name
+* @return	string|null	The configuration item or NULL if the item doesn't exist
+*
+* public function slash_item($item, $index = '')
+*/
+//notice:what about item is long?
+PHP_METHOD(cii_config, slash_item)
+{
+	char *item = NULL;
+	char *index = NULL;
+	uint item_len = 0;
+	uint index_len = 0;
+	char *retval, need_free;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &item, &item_len, &index, &index_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	retval = cii_config_slash_item(item, item_len, index, index_len, &need_free);
+	if( retval ){
+		if( need_free ){
+			RETURN_STRING(retval, 0);
 		}else{
-			RETURN_ZVAL(*item_value, 1, 0);
-		}	
+			RETURN_STRING(retval, 1);
+		}
 	}
 }
 /**
@@ -121,75 +181,20 @@ PHP_METHOD(cii_config, set_item)
 	uint item_len;
 	zval *value;
 	zval **value_ptr;
-
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &item, &item_len, &value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	//can replaced by CII_G(config)
-	zval *config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
-
+	zval *config = cii_get_config();
 	value_ptr = &value;
 	CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value_ptr);	
 	zend_hash_update(Z_ARRVAL_P(config), item, item_len+1, value_ptr, sizeof(zval *), NULL);
-}
-/**
-* Fetch a config file item with slash appended (if not empty)
-*
-* @param	string		$item	Config item name
-* @return	string|null	The configuration item or NULL if the item doesn't exist
-*
-* public function slash_item($item)
-*/
-//notice:what about item is long?
-PHP_METHOD(cii_config, slash_item)
-{
-	char *item;
-	uint item_len;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &item, &item_len) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-
-	//can replaced by CII_G(config)
-	zval *config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
-	zval **value;
-
-	if( zend_hash_find(Z_ARRVAL_P(config), item, item_len+1, (void**)&value) == FAILURE ){
-		/*
-		* return_value aleady is null.
-		* no need to reset by RETURN_NULL()
-		*/
-		return;
-	}else if( Z_TYPE_PP(value) == IS_STRING && Z_STRLEN_PP(value) == 0 && !strcmp(Z_STRVAL_PP(value), "") ){
-		RETURN_STRLING("", 1);
-	}else{
-		char *retval;
-		zval *rtrim_retval;
-		zval *rtrim_param_0, *rtrim_param_1;
-		zval **rtrim_params[2];
-		MAKE_STD_ZVAL(rtrim_param_0);
-		ZVAL_ZVAL(rtrim_param_0, *value, 1, 0);
-		MAKE_STD_ZVAL(rtrim_param_1);
-		ZVAL_STRING(rtrim_param_1, "/", 1);
-		rtrim_params[0] = &rtrim_param_0;
-		rtrim_params[1] = &rtrim_param_1;
-		CII_CALL_USER_FUNCTION_EX(EG(function_table), NULL, "rtrim", &rtrim_retval, 2, rtrim_params);
-
-		spprintf(&retval, 0, "%s%s", Z_STRVAL_P(rtrim_retval), "/");
-		
-		zval_ptr_dtor(&rtrim_param_0);
-		zval_ptr_dtor(&rtrim_param_1);
-		zval_ptr_dtor(&rtrim_retval);
-
-		RETURN_STRING(retval, 0);
-	}
 }
 
 zend_function_entry cii_config_methods[] = {
 	PHP_ME(cii_config, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(cii_config, item, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(cii_config, set_item, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_config, slash_item, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_config, set_item, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 

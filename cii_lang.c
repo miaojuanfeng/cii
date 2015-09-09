@@ -229,7 +229,7 @@ PHP_METHOD(cii_lang, line)
 	zval **value;
 	zval *language;
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &line, &line_len) == FAILURE ){
-		return;
+		WRONG_PARAM_COUNT;
 	}
 	language = zend_read_property(cii_lang_ce, getThis(), ZEND_STRL("language"), 1 TSRMLS_CC);
 	if( zend_hash_find(Z_ARRVAL_P(language), line, line_len+1, (void**)&value) == FAILURE ){
