@@ -286,6 +286,8 @@ $this->benchmark->mark('another_mark_end');
 
 你应该将你正在使用的语言保存到一个会话变量中。
 
+语言文件名需要加上_lang
+
 语言文件的例子
 
 ```php
@@ -342,7 +344,7 @@ $lang['error_username_missing'] = 'You must submit a username';
 $this->lang->load('filename', 'language');
 ```
 
-其中 filename 是你要加载的语言文件名（不带.php扩展名），language 是要加载哪种语言（比如，英语）。如果没有第二个参数，将会使用 config/config.php 中设置的默认语言。
+其中 filename 是你要加载的语言文件名，language 是要加载哪种语言（比如，英语）。如果没有第二个参数，将会使用 config/config.php 中设置的默认语言。
 
 你也可以通过传一个语言文件的数组给第一个参数来同时加载多个语言文件。
 
