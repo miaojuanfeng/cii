@@ -34,7 +34,7 @@ PHP_METHOD(cii_lang, __construct)
 /*
 *	load language file
 */
-ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, char *file, uint len, zval *langfile, zval *idiom, char is_return, zval **pDest)
+ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, char *file, uint len, char *langfile, uint langfile_len, zval *idiom, char is_return, zval **pDest)
 {
 	if (zend_hash_exists(&EG(included_files), file, len+1)) {
 		return 1;
@@ -47,9 +47,9 @@ ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, ch
 	zval **lang;
 	if( zend_hash_find(EG(active_symbol_table), "lang", 5, (void**)&lang) == FAILURE ){
 		if( idiom && Z_STRLEN_P(idiom) ){
-			php_error(E_WARNING, "Language file contains no data: language/%s/%s.php", Z_STRVAL_P(idiom), Z_STRVAL_P(langfile));
+			php_error(E_WARNING, "Language file contains no data: language/%s/%s", Z_STRVAL_P(idiom), langfile);
 		}else{
-			php_error(E_WARNING, "Language file contains no data: language/%s.php", Z_STRVAL_P(langfile));
+			php_error(E_WARNING, "Language file contains no data: language/%s", langfile);
 		}
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 		return 0;
@@ -63,7 +63,7 @@ ZEND_API int cii_load_lang(zend_class_entry *cii_lang_ce, zval *cii_lang_obj, ch
 
 	zval *is_loaded = zend_read_property(cii_lang_ce, cii_lang_obj, ZEND_STRL("is_loaded"), 1 TSRMLS_CC);
 	Z_ADDREF_P(idiom);
-	zend_hash_update(Z_ARRVAL_P(is_loaded), Z_STRVAL_P(langfile), Z_STRLEN_P(langfile)+1, &idiom, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(is_loaded), langfile, langfile_len+1, &idiom, sizeof(zval *), NULL);
 
 	zval *language = zend_read_property(cii_lang_ce, cii_lang_obj, ZEND_STRL("language"), 1 TSRMLS_CC);
 	php_array_merge(Z_ARRVAL_P(language), Z_ARRVAL_P(*lang), 0 TSRMLS_CC);
@@ -121,30 +121,92 @@ PHP_METHOD(cii_lang, load)
 			if(zend_hash_get_current_data_ex(Z_ARRVAL_P(langfile), (void**)&value, &pos) == FAILURE){
 				continue;
 			}
-			if( idiom && Z_STRLEN_P(idiom) ){
-				len = spprintf(&file, 0, "%s%s%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(idiom), "/", Z_STRVAL_PP(value), ".php");
+			/*
+			*	check lang file name
+			*/
+			char *p = NULL, orig;
+			char *fullfile;
+			uint fullfile_len;
+			if( Z_STRLEN_PP(value) > 9 && (p = Z_STRVAL_PP(value)+ (Z_STRLEN_PP(value)-9)) && !strcmp(p, "_lang.php") ){
+				orig = *p;
+				*p = '\0';
+				fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_lang.php");
+			}else if( Z_STRLEN_PP(value) > 5 && (p = Z_STRVAL_PP(value)+ (Z_STRLEN_PP(value)-5)) && !strcmp(p, "_lang") ){
+				orig = *p;
+				*p = '\0';
+				fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_lang.php");
+			}else if( Z_STRLEN_PP(value) > 4 && (p = Z_STRVAL_PP(value)+ (Z_STRLEN_PP(value)-4)) && !strcmp(p, ".php") ){
+				orig = *p;
+				*p = '\0';
+				fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_lang.php");
 			}else{
-				len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_PP(value), ".php");
+				fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_lang.php");
 			}
-			retval = cii_load_lang(cii_lang_ce, getThis(), file, len, *value, idiom, is_return, &retzval);
+			if(p && !*p){
+				*p = orig;
+			}
+			/*
+			*	set lang file name
+			*/
+			if( idiom && Z_STRLEN_P(idiom) ){
+				len = spprintf(&file, 0, "%s%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(idiom), "/", fullfile);
+			}else{
+				len = spprintf(&file, 0, "%s%s%s", CII_G(apppath), "language/", fullfile);
+			}
+			/*
+			*	load lang file
+			*/
+			retval = cii_load_lang(cii_lang_ce, getThis(), file, len, fullfile, fullfile_len, idiom, is_return, &retzval);
 			if( is_return ){
 				zend_hash_update(Z_ARRVAL_P(return_value), Z_STRVAL_PP(value), Z_STRLEN_PP(value)+1, &retzval, sizeof(zval *), NULL);
 			}
 			efree(file);
+			efree(fullfile);
 		}
 	}else if( Z_TYPE_P(langfile) == IS_STRING ){
-		if( idiom && Z_STRLEN_P(idiom) ){
-			len = spprintf(&file, 0, "%s%s%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(idiom), "/", Z_STRVAL_P(langfile), ".php");
+		/*
+		*	check lang file name
+		*/
+		char *p = NULL, orig;
+		char *fullfile;
+		uint fullfile_len;
+		if( Z_STRLEN_P(langfile) > 9 && (p = Z_STRVAL_P(langfile)+ (Z_STRLEN_P(langfile)-9)) && !strcmp(p, "_lang.php") ){
+			orig = *p;
+			*p = '\0';
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(langfile), "_lang.php");
+		}else if( Z_STRLEN_P(langfile) > 5 && (p = Z_STRVAL_P(langfile)+ (Z_STRLEN_P(langfile)-5)) && !strcmp(p, "_lang") ){
+			orig = *p;
+			*p = '\0';
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(langfile), "_lang.php");
+		}else if( Z_STRLEN_P(langfile) > 4 && (p = Z_STRVAL_P(langfile)+ (Z_STRLEN_P(langfile)-4)) && !strcmp(p, ".php") ){
+			orig = *p;
+			*p = '\0';
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(langfile), "_lang.php");
 		}else{
-			len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(langfile), ".php");
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(langfile), "_lang.php");
 		}
-		retval = cii_load_lang(cii_lang_ce, getThis(), file, len, langfile, idiom, is_return, &retzval);
+		if(p && !*p){
+			*p = orig;
+		}
+		/*
+		*	set lang file name
+		*/
+		if( idiom && Z_STRLEN_P(idiom) ){
+			len = spprintf(&file, 0, "%s%s%s%s%s", CII_G(apppath), "language/", Z_STRVAL_P(idiom), "/", fullfile);
+		}else{
+			len = spprintf(&file, 0, "%s%s%s", CII_G(apppath), "language/", fullfile);
+		}
+		/*
+		*	load lang file
+		*/
+		retval = cii_load_lang(cii_lang_ce, getThis(), file, len, fullfile, fullfile_len, idiom, is_return, &retzval);
 		if( is_return ){
 			*return_value = *retzval;
 			zval_copy_ctor(return_value);
 			zval_ptr_dtor(&retzval);
 		}
 		efree(file);
+		efree(fullfile);
 	}
 	if( !is_return ){
 		RETURN_BOOL(retval);

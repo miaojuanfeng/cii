@@ -152,7 +152,7 @@ ZEND_END_ARG_INFO()
 *
 * function &get_instance()
 */
-PHP_FUNCTION(get_instance)
+PHP_FUNCTION(cii_get_instance)
 {
 	if( return_value_used && CII_G(cii_controller_ce) && CII_G(cii_controller) ){
 		zval_ptr_dtor(return_value_ptr);
@@ -422,6 +422,28 @@ PHP_FUNCTION(cii_is_https)
 {
 	RETURN_BOOL(cii_is_https());
 }
+/**
+* Returns the specified config item
+*
+* @param	string
+* @return	mixed
+*
+* function config_item($item)
+*/
+PHP_FUNCTION(cii_config_item)
+{
+	char *item;
+	uint item_len;
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &item, &item_len) == FAILURE ){
+		WRONG_PARAM_COUNT;
+	}
+	zval *config = cii_get_config();
+	zval **item_value;
+	if( zend_hash_find(Z_ARRVAL_P(config), item, item_len+1, (void**)&item_value) != FAILURE ){
+		RETURN_ZVAL(*item_value, 1, 0);
+	}
+}
+
 
 PHP_FUNCTION(cii_run)
 {	
@@ -710,7 +732,7 @@ PHP_FUNCTION(cii_run)
 			func.internal_function.num_args = 0;
 			func.internal_function.required_num_args = 0;
 			func.internal_function.arg_info = (zend_arg_info*)cii_get_instance_arginfo+1;
-			func.internal_function.handler = ZEND_FN(get_instance);
+			func.internal_function.handler = ZEND_FN(cii_get_instance);
 			if( zend_hash_add(&(*run_class_ce)->function_table, "get_instance", 13, &func, sizeof(zend_function), NULL) == FAILURE ){
 				php_error(E_WARNING, "add get_instance method failed");
 			}
@@ -803,8 +825,9 @@ PHP_FUNCTION(cii_run)
 }
 
 const zend_function_entry cii_functions[] = {
-	PHP_FE(get_instance, cii_get_instance_arginfo)
+	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
 	PHP_FE(cii_get_config, cii_get_config_arginfo)
+	PHP_FE(cii_config_item, NULL)
 	PHP_FE(cii_run, NULL)
 	PHP_FE(cii_is_https, NULL)
 	PHP_FE(cii_load_class, cii_load_class_arginfo)

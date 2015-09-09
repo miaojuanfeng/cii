@@ -86,9 +86,9 @@ PHP_METHOD(cii_config, item)
 
 	config = zend_read_property(cii_config_ce, getThis(), "config", 6, 1 TSRMLS_CC);
 
-	if(!index){
+	if( !index ){
 		if( zend_hash_find(Z_ARRVAL_P(config), item, item_len+1, (void**)&value) == FAILURE ){
-			RETURN_NULL();
+			return;
 		}else{
 			RETURN_ZVAL(*value, 1, 0);
 		}
@@ -99,7 +99,7 @@ PHP_METHOD(cii_config, item)
 	}else{
 		zval **item_value;
 		if( zend_hash_find(Z_ARRVAL_PP(value), item, item_len+1, (void**)&item_value) == FAILURE ){
-			RETURN_NULL();
+			return;
 		}else{
 			RETURN_ZVAL(*item_value, 1, 0);
 		}	
