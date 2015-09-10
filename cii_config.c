@@ -166,6 +166,81 @@ PHP_METHOD(cii_config, slash_item)
 	}
 }
 /**
+* Build URI string
+*
+* @used-by	CI_Config::site_url()
+* @used-by	CI_Config::base_url()
+*
+* @param	string|string[]	$uri	URI string or an array of segments
+* @return	string
+*/
+ZEND_API char* cii_uri_string(zval *uri TSRMLS_DC)
+{
+	if( !uri ){
+		return NULL;
+	}
+	if( Z_TYPE_P(uri) == IS_STRING ){
+		/*
+    	*	trim($retval, '/');
+    	*/
+		char *p;
+    	uint p_len;
+    	p = Z_STRVAL_P(uri);
+    	p_len = Z_STRLEN_P(uri);
+    	if( *p == '/' ){
+    		p++;
+    		p_len--;
+    	}
+    	if( *(p+p_len-1) == '/' )
+    	{
+    		p_len--;
+    	}
+		return estrndup(p, p_len);
+	}else if( Z_TYPE_P(uri) == IS_ARRAY ){
+		/*
+		*	implode uri
+		*/
+		zval *delim;
+		MAKE_STD_ZVAL(delim);
+    	ZVAL_STRINGL(delim, "/", 1, 1);
+    	zval *retval;
+    	MAKE_STD_ZVAL(retval);
+    	php_implode(delim, uri, retval TSRMLS_CC);
+    	zval_ptr_dtor(&delim);
+    	/*
+    	*	trim($retval, '/');
+    	*/
+    	char *retstr, *p;
+    	uint p_len;
+    	p = Z_STRVAL_P(retval);
+    	p_len = Z_STRLEN_P(retval);
+    	if( *p == '/' ){
+    		p++;
+    		p_len--;
+    	}
+    	if( *(p+p_len-1) == '/' )
+    	{
+    		p_len--;
+    	}
+    	retstr = estrndup(p, p_len);
+    	php_printf("retval: %s\n", Z_STRVAL_P(retval));
+    	zval_ptr_dtor(&retval);
+    	return retstr;
+	}
+	return NULL;
+}
+/*PHP_METHOD(cii_config, uri_string)
+{
+	zval *uri;
+	char *retval;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z!", &uri) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	if( retval = cii_uri_string(uri TSRMLS_CC) ){
+		RETURN_STRING(retval, 0);
+	}
+}*/
+/**
 * Set a config file item
 *
 * @param	string	$item	Config item key
@@ -195,6 +270,7 @@ zend_function_entry cii_config_methods[] = {
 	PHP_ME(cii_config, item, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_config, slash_item, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_config, set_item, NULL, ZEND_ACC_PUBLIC)
+	//PHP_ME(cii_config, uri_string, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
