@@ -223,23 +223,155 @@ ZEND_API char* cii_uri_string(zval *uri TSRMLS_DC)
     		p_len--;
     	}
     	retstr = estrndup(p, p_len);
-    	php_printf("retval: %s\n", Z_STRVAL_P(retval));
     	zval_ptr_dtor(&retval);
     	return retstr;
 	}
 	return NULL;
 }
-/*PHP_METHOD(cii_config, uri_string)
+/**
+* Site URL
+*
+* Returns base_url . index_page [. uri_string]
+*
+* @uses	CI_Config::_uri_string()
+*
+* @param	string|string[]	$uri	URI string or an array of segments
+* @param	string	$protocol
+* @return	string
+*
+* public function site_url($uri = '', $protocol = NULL)
+*/
+PHP_METHOD(cii_config, site_url)
 {
-	zval *uri;
-	char *retval;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z!", &uri) == FAILURE) {
+	zval *uri = NULL;
+	char *protocol = NULL;
+	uint protocol_len;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|z!s!", &uri, &protocol, &protocol_len) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	if( retval = cii_uri_string(uri TSRMLS_CC) ){
-		RETURN_STRING(retval, 0);
+	char need_free;
+	char *base_url = cii_config_slash_item("base_url", 8, NULL, 0, &need_free);
+	zval *index_page = cii_config_item("index_page", 10, NULL, 0);
+
+	//php_printf("%s\n", base_url);
+	//if(index_page) php_printf("%s\n", Z_STRVAL_P(index_page));
+	//php_printf("%s\n", strstr(base_url,"://"));
+
+	char *uri_str;
+	if( uri ){
+		uri_str = cii_uri_string(uri TSRMLS_CC);
 	}
-}*/
+	/*
+	*	long code for allocate memory only once
+	*/
+	char *p = base_url;
+	if( protocol ){
+		if( index_page ){	
+			if( Z_TYPE_P(index_page) != IS_STRING ){
+				convert_to_string(index_page);
+			}
+			if( !uri ){
+				spprintf(&base_url, 0, "%s%s%s", protocol, strstr(base_url,"://"), Z_STRVAL_P(index_page));
+			}else{
+				spprintf(&base_url, 0, "%s%s%s%s%s", protocol, strstr(base_url,"://"), Z_STRVAL_P(index_page), "/", uri_str);
+			}
+		}else{
+			if( !uri ){
+				spprintf(&base_url, 0, "%s%s", protocol, strstr(base_url,"://"));
+			}else{
+				spprintf(&base_url, 0, "%s%s%s", protocol, strstr(base_url,"://"), uri_str);
+			}
+		}
+	}else{
+		if( index_page ){	
+			if( Z_TYPE_P(index_page) != IS_STRING ){
+				convert_to_string(index_page);
+			}
+			if( !uri ){
+				spprintf(&base_url, 0, "%s%s", base_url, Z_STRVAL_P(index_page));
+			}else{
+				spprintf(&base_url, 0, "%s%s%s%s", base_url, Z_STRVAL_P(index_page), "/", uri_str);
+			}
+		}else{
+			if( !uri ){
+				spprintf(&base_url, 0, "%s", base_url);
+			}else{
+				spprintf(&base_url, 0, "%s%s", base_url, uri_str);
+			}
+		}
+	}
+	/*
+	*	free used memory
+	*/
+	if( uri_str ){
+		efree(uri_str);
+	}
+	if( need_free ){
+		efree(p);
+	}
+	//php_printf("%s\n", base_url);
+	RETURN_STRING(base_url, 0);
+}
+/**
+* Base URL
+*
+* Returns base_url [. uri_string]
+*
+* @uses	CI_Config::_uri_string()
+*
+* @param	string|string[]	$uri	URI string or an array of segments
+* @param	string	$protocol
+* @return	string
+*
+* public function base_url($uri = '', $protocol = NULL)
+*/
+PHP_METHOD(cii_config, base_url)
+{
+	zval *uri = NULL;
+	char *protocol = NULL;
+	uint protocol_len;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|z!s!", &uri, &protocol, &protocol_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	char need_free;
+	char *base_url = cii_config_slash_item("base_url", 8, NULL, 0, &need_free);
+
+    //php_printf("%s\n", base_url);
+	//php_printf("%s\n", strstr(base_url,"://"));
+
+	char *uri_str;
+	if( uri ){
+		uri_str = cii_uri_string(uri TSRMLS_CC);
+	}
+	/*
+	*	long code for allocate memory only once
+	*/
+	char *p = base_url;
+	if( protocol ){
+		if( !uri ){
+			spprintf(&base_url, 0, "%s%s", protocol, strstr(base_url,"://"));
+		}else{
+			spprintf(&base_url, 0, "%s%s%s", protocol, strstr(base_url,"://"), uri_str);
+		}
+	}else{
+		if( !uri ){
+			spprintf(&base_url, 0, "%s", base_url);
+		}else{
+			spprintf(&base_url, 0, "%s%s", base_url, uri_str);
+		}
+	}
+	/*
+	*	free used memory
+	*/
+	if( uri_str ){
+		efree(uri_str);
+	}
+	if( need_free ){
+		efree(p);
+	}
+	//php_printf("%s\n", base_url);
+	RETURN_STRING(base_url, 0);
+}
 /**
 * Set a config file item
 *
@@ -269,8 +401,9 @@ zend_function_entry cii_config_methods[] = {
 	PHP_ME(cii_config, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(cii_config, item, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_config, slash_item, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_config, site_url, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_config, base_url, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_config, set_item, NULL, ZEND_ACC_PUBLIC)
-	//PHP_ME(cii_config, uri_string, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
