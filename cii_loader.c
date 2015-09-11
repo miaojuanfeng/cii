@@ -169,10 +169,10 @@ PHP_METHOD(cii_loader, view){
 		char *key;
 		int key_len;
 		ulong idx;
-		
-		//using HashPosition pos to make sure not modify data's hashtable internal pointer
+		/*
+		* using HashPosition pos to make sure not modify data's hashtable internal pointer
+		*/
 		HashPosition pos;
-		
 		for(zend_hash_internal_pointer_reset_ex(data, &pos);
 		    zend_hash_has_more_elements_ex(data, &pos) == SUCCESS;
 		    zend_hash_move_forward_ex(data, &pos)){
