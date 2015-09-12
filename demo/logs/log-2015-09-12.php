@@ -1,0 +1,11 @@
+INFO - 2015-09-12 12:52:34 --> Benchmark Class Initialized
+INFO - 2015-09-12 12:52:34 --> Hooks Class Initialized
+INFO - 2015-09-12 12:52:34 --> Config Class Initialized
+INFO - 2015-09-12 12:52:34 --> Log Class Initialized
+INFO - 2015-09-12 12:52:34 --> URI Class Initialized
+INFO - 2015-09-12 12:52:34 --> Router Class Initialized
+INFO - 2015-09-12 12:52:34 --> Output Class Initialized
+INFO - 2015-09-12 12:52:34 --> Input Class Initialized
+INFO - 2015-09-12 12:52:34 --> Language Class Initialized
+INFO - 2015-09-12 12:52:34 --> Loader Class Initialized
+INFO - 2015-09-12 12:52:34 --> Controller Class Initialized

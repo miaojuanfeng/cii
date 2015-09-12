@@ -823,6 +823,105 @@ PHP_FUNCTION(cii_run)
 	*/
 	cii_call_hook(cii_hooks_ce, cii_hooks_obj, "post_system", 12);
 }
+/**
+* Stringify attributes for use in HTML tags.
+*
+* Helper function used to convert a string, array, or object
+* of attributes to a string.
+*
+* @param	mixed	string, array, object
+* @param	bool
+* @return	string
+*
+* function _stringify_attributes($attributes, $js = FALSE)
+*/
+PHP_FUNCTION(cii_stringify_attributes)
+{
+	zval *attributes;
+	char js = 0;
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z!|b", &attributes, &js) == FAILURE ){
+		WRONG_PARAM_COUNT;
+	}
+	if( !attributes ){
+		return;
+	}
+	if( Z_TYPE_P(attributes) == IS_STRING ){
+		char *retval;
+		spprintf(&retval, 0, "%s%s", " ", Z_STRVAL_P(attributes));
+		RETURN_STRING(retval, 0);
+	}
+	if( Z_TYPE_P(attributes) != IS_ARRAY ){
+		convert_to_array(attributes);
+	}
+	HashPosition pos;
+	char *atts = "";
+	uint atts_len;
+	char need_free = 0;
+	char *key;
+	uint key_len;
+	ulong idx;
+	zval **value;
+	int key_type;
+	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(attributes), &pos);
+	    zend_hash_has_more_elements_ex(Z_ARRVAL_P(attributes), &pos) == SUCCESS;
+	    zend_hash_move_forward_ex(Z_ARRVAL_P(attributes), &pos)){
+
+		key_type = zend_hash_get_current_key_ex(Z_ARRVAL_P(attributes), &key, &key_len, &idx, 0, &pos);
+		if( zend_hash_get_current_data_ex(Z_ARRVAL_P(attributes), (void**)&value, &pos) == FAILURE ){
+			continue;
+		}
+		if( Z_TYPE_PP(value) != IS_STRING ){
+			convert_to_string(*value);
+		}
+		char *new_atts;
+		if( key_type == HASH_KEY_IS_STRING ){
+			if( !js ){
+				atts_len = spprintf(&new_atts, 0, "%s%s%s%s%s%s", atts, " ", key, "=\"", Z_STRVAL_PP(value), "\"");
+			}else{
+				atts_len = spprintf(&new_atts, 0, "%s%s%s%s%s", atts, key, "=", Z_STRVAL_PP(value), ",");
+			}
+		}else if( key_type == HASH_KEY_IS_LONG ){
+			if( !js ){
+				atts_len = spprintf(&new_atts, 0, "%s%s%ld%s%s%s", atts, " ", idx, "=\"", Z_STRVAL_PP(value), "\"");
+			}else{
+				atts_len = spprintf(&new_atts, 0, "%s%ld%s%s%s", atts, idx, "=", Z_STRVAL_PP(value), ",");
+			}
+		}
+		if( atts && need_free){
+			efree(atts);
+		}
+		atts = new_atts;
+		need_free = 1;
+	}
+	if( *(atts+atts_len-1) == ',' ){
+		*(atts+atts_len-1) = '\0';
+		atts_len--;
+	}
+	RETURN_STRINGL(atts, atts_len, 0);
+}
+/**
+* Determines if the current version of PHP is equal to or greater than the supplied value
+*
+* @param	string
+* @return	bool	TRUE if the current version is $version or higher
+*
+* function is_php($version)
+*/
+PHP_FUNCTION(cii_is_php)
+{
+	char *version;
+	uint version_len;
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &version, &version_len) == FAILURE ){
+		WRONG_PARAM_COUNT;
+	}
+	zval php_version;
+	if( !zend_get_constant("PHP_VERSION", 11, &php_version TSRMLS_CC) ){
+		RETURN_FALSE;
+	}
+	int compare = php_version_compare(Z_STRVAL(php_version), version);
+	zval_dtor(&php_version);
+	RETURN_BOOL(compare != -1);
+}
 
 const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
@@ -832,6 +931,8 @@ const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_is_https, NULL)
 	PHP_FE(cii_load_class, cii_load_class_arginfo)
 	PHP_FE(cii_is_loaded, cii_is_loaded_arginfo)
+	PHP_FE(cii_stringify_attributes, NULL)
+	PHP_FE(cii_is_php, NULL)
 	PHP_FE_END
 };
 
