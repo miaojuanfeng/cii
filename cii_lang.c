@@ -160,6 +160,9 @@ PHP_METHOD(cii_lang, load)
 			if( is_return ){
 				zend_hash_update(Z_ARRVAL_P(return_value), Z_STRVAL_PP(value), Z_STRLEN_PP(value)+1, &retzval, sizeof(zval *), NULL);
 			}
+			/*
+			*	free used memory
+			*/
 			efree(file);
 			efree(fullfile);
 		}
@@ -205,6 +208,9 @@ PHP_METHOD(cii_lang, load)
 			zval_copy_ctor(return_value);
 			zval_ptr_dtor(&retzval);
 		}
+		/*
+		*	free used memory
+		*/
 		efree(file);
 		efree(fullfile);
 	}

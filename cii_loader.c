@@ -349,38 +349,124 @@ PHP_METHOD(cii_loader, helper){
 	zval *helper = NULL;
 	char *file;
 	uint file_len;
-	HashPosition pos;
-	zval **data;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z!" ,&helper) == FAILURE) {
-		RETURN_ZVAL(getThis(), 1, 0);
+		WRONG_PARAM_COUNT;
 	}
 
 	if(!helper){
 		RETURN_ZVAL(getThis(), 1, 0);
-	} 
-
-	if(Z_TYPE_P(helper)!=IS_ARRAY){
-		convert_to_array(helper);
 	}
-
-	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
 
 	if( !CII_G(apppath) ){
 		cii_get_apppath();
 	}
-	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(helper), &pos);
-		zend_hash_get_current_data_ex(Z_ARRVAL_P(helper), (void**)&data, &pos) == SUCCESS;
-		zend_hash_move_forward_ex(Z_ARRVAL_P(helper), &pos) ){
-			file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "helpers/", Z_STRVAL_P(*data), ".php");
-			if(zend_hash_exists(&EG(included_files), file, file_len + 1)){
-				efree(file);
-				continue;
-			}
-			cii_loader_import(file, file_len, 0 TSRMLS_CC);
-			efree(file);
-	}
 
+	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
+	if( Z_TYPE_P(helper) == IS_ARRAY ){
+		HashPosition pos;
+		zval **value;
+		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(helper), &pos);
+			zend_hash_has_more_elements_ex(Z_ARRVAL_P(helper), &pos) == SUCCESS;
+			zend_hash_move_forward_ex(Z_ARRVAL_P(helper), &pos) ){
+
+				if(zend_hash_get_current_data_ex(Z_ARRVAL_P(helper), (void**)&value, &pos) == FAILURE){
+					continue;
+				}
+				/*
+				*	check helper file name
+				*/
+				char *p = NULL, orig;
+				char *fullfile;
+				uint fullfile_len;
+				if( Z_STRLEN_PP(value) > 11 && (p = Z_STRVAL_PP(value)+ (Z_STRLEN_PP(value)-11)) && !strcmp(p, "_helper.php") ){
+					orig = *p;
+					*p = '\0';
+					fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_helper.php");
+				}else if( Z_STRLEN_PP(value) > 7 && (p = Z_STRVAL_PP(value)+ (Z_STRLEN_PP(value)-7)) && !strcmp(p, "_helper") ){
+					orig = *p;
+					*p = '\0';
+					fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_helper.php");
+				}else if( Z_STRLEN_PP(value) > 4 && (p = Z_STRVAL_PP(value)+ (Z_STRLEN_PP(value)-4)) && !strcmp(p, ".php") ){
+					orig = *p;
+					*p = '\0';
+					fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_helper.php");
+				}else{
+					fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_PP(value), "_helper.php");
+				}
+				if(p && !*p){
+					*p = orig;
+				}
+				/*
+				*	set helper file name
+				*/
+				file_len = spprintf(&file, 0, "%s%s%s", CII_G(apppath), "helpers/", fullfile);
+				/*
+				*	check is loaded helper file name
+				*/
+				if(zend_hash_exists(&EG(included_files), file, file_len + 1)){
+					efree(file);
+					efree(fullfile);
+					continue;
+				}
+				/*
+				*	load helper file
+				*/
+				cii_loader_import(file, file_len, 0 TSRMLS_CC);
+				/*
+				*	free used memory
+				*/
+				efree(file);
+				efree(fullfile);
+		}
+	}else if( Z_TYPE_P(helper) == IS_STRING ){
+		/*
+		*	check helper file name
+		*/
+		char *p = NULL, orig;
+		char *fullfile;
+		uint fullfile_len;
+		if( Z_STRLEN_P(helper) > 11 && (p = Z_STRVAL_P(helper)+ (Z_STRLEN_P(helper)-11)) && !strcmp(p, "_helper.php") ){
+			orig = *p;
+			*p = '\0';
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(helper), "_helper.php");
+		}else if( Z_STRLEN_P(helper) > 7 && (p = Z_STRVAL_P(helper)+ (Z_STRLEN_P(helper)-7)) && !strcmp(p, "_helper") ){
+			orig = *p;
+			*p = '\0';
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(helper), "_helper.php");
+		}else if( Z_STRLEN_P(helper) > 4 && (p = Z_STRVAL_P(helper)+ (Z_STRLEN_P(helper)-4)) && !strcmp(p, ".php") ){
+			orig = *p;
+			*p = '\0';
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(helper), "_helper.php");
+		}else{
+			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(helper), "_helper.php");
+		}
+		if(p && !*p){
+			*p = orig;
+		}
+		/*
+		*	set helper file name
+		*/
+		file_len = spprintf(&file, 0, "%s%s%s", CII_G(apppath), "helpers/", fullfile);
+		/*
+		*	check is loaded helper file name
+		*/
+		if( zend_hash_exists(&EG(included_files), file, file_len + 1) ){
+			efree(file);
+			efree(fullfile);
+			CII_DESTROY_ACTIVE_SYMBOL_TABLE();
+			RETURN_ZVAL(getThis(), 1, 0);
+		}
+		/*
+		*	load helper file
+		*/
+		cii_loader_import(file, file_len, 0 TSRMLS_CC);
+		/*
+		*	free used memory
+		*/
+		efree(file);
+		efree(fullfile);
+	}
 	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
 
 	RETURN_ZVAL(getThis(), 1, 0);
