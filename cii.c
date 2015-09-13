@@ -257,7 +257,7 @@ PHP_FUNCTION(cii_get_config)
 /*
 *	is_loaded
 */
-ZEND_API zval* is_loaded(char *class)
+ZEND_API zval* cii_is_loaded(char *class)
 {
 	if( !CII_G(is_loaded) ){
 		MAKE_STD_ZVAL(CII_G(is_loaded));
@@ -288,71 +288,116 @@ ZEND_API zval* is_loaded(char *class)
 */
 PHP_FUNCTION(cii_is_loaded)
 {
-	char *class;
+	char *class = NULL;
 	uint class_len;
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!", &class, &class_len) == FAILURE ){
 		WRONG_PARAM_COUNT;
 	}
-	if(return_value_used){
-		zval_ptr_dtor(return_value_ptr);
-		(*return_value_ptr) = is_loaded(class);
-		Z_ADDREF_P(*return_value_ptr);
-	}	
+	zval_ptr_dtor(return_value_ptr);
+	(*return_value_ptr) = cii_is_loaded(class);
+	Z_ADDREF_P(*return_value_ptr);
 }
 /*
 *	load_class
 */
-ZEND_API zval* load_class(char *class, uint param_count, zval **params[])
+ZEND_API zval* cii_load_class(char *class, uint class_len, uint param_count, zval **params[])
 {
 	if( !CII_G(classes) ){
 		MAKE_STD_ZVAL(CII_G(classes));
 		array_init(CII_G(classes));
 	}
 	zval **exist_object;
-	if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), class, strlen(class)+1, (void**)&exist_object) == SUCCESS ){
+	if( zend_hash_find(Z_ARRVAL_P(CII_G(classes)), class, class_len+1, (void**)&exist_object) == SUCCESS ){
 		return *exist_object;
 	}
-
-	char *lower_class;
-	char *file;
-	uint file_len;
-	zend_class_entry **class_ce;
-	zval *class_obj;
-	MAKE_STD_ZVAL(class_obj);
-	lower_class = zend_str_tolower_dup(class, strlen(class));
 
 	if( !CII_G(apppath) ){
 		cii_get_apppath();
 	}
-	file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "libraries/", class, ".php");
 
 	CII_ALLOC_ACTIVE_SYMBOL_TABLE();
-
+	/*
+	*	check library file name
+	*/
+	char *p = NULL, orig;
+	char *fullfile;
+	uint fullfile_len;
+	if( class_len > 12 && (p = class + (class_len-12)) && !strcmp(p, "_library.php") ){
+		orig = *p;
+		*p = '\0';
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", class, "_library.php");
+	}else if( class_len > 8 && (p = class + (class_len-8)) && !strcmp(p, "_library") ){
+		orig = *p;
+		*p = '\0';
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", class, "_library.php");
+	}else if( class_len > 4 && (p = class + (class_len-4)) && !strcmp(p, ".php") ){
+		orig = *p;
+		*p = '\0';
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", class, "_library.php");
+	}else{
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", class, "_library.php");
+	}
+	if(p && !*p){
+		*p = orig;
+	}
+	/*
+	*	set library file name
+	*/
+	char *file;
+	uint file_len;
+	file_len = spprintf(&file, 0, "%s%s%s", CII_G(apppath), "libraries/", fullfile);
 	cii_loader_import(file, file_len, 0 TSRMLS_CC);
 	efree(file);
+	efree(fullfile);
 
-	if( zend_hash_find(EG(class_table), lower_class, strlen(lower_class)+1, (void**)&class_ce) == FAILURE ){
-		php_error(E_WARNING, "Unable to locate the specified class: %s", class);
+	char *class_fullname;
+	uint class_fullname_len;
+	zval *retval;
+	char *subclass_prefix;
+	char need_free = 0;
+	if( retval = cii_config_item("subclass_prefix", 15, NULL, 0) ){
+		subclass_prefix = zend_str_tolower_dup(Z_STRVAL_P(retval), Z_STRLEN_P(retval));
+		need_free = 1;
+	}else{
+		subclass_prefix = "";
+	}
+	char *lower_class = zend_str_tolower_dup(class, class_len);
+	class_fullname_len = spprintf(&class_fullname, 0, "%s%s", subclass_prefix, lower_class);
+
+	zend_class_entry **class_ce;
+	if( zend_hash_find(EG(class_table), class_fullname, class_fullname_len+1, (void**)&class_ce) == FAILURE ){
+		php_error(E_WARNING, "Unable to locate the specified class: %s%s", subclass_prefix, class);
+		efree(class_fullname);
+		if( need_free ){
+			efree(subclass_prefix);
+		}
 		efree(lower_class);
 		CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-		return class_obj;
+		return NULL;
 	}
+	/*
+	*	free used memory
+	*/
+	if( need_free ){
+		efree(subclass_prefix);
+	}
+	efree(lower_class);
 
-	is_loaded(class);
+	cii_is_loaded(class);
 
+	zval *class_obj;
+	MAKE_STD_ZVAL(class_obj);
 	object_init_ex(class_obj, *class_ce);
 	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), class, strlen(class)+1, &class_obj, sizeof(zval *), NULL);
 
-	/*zval *retval;
-	zval *func_name;
-	MAKE_STD_ZVAL(func_name);
-	ZVAL_STRING(func_name, "__construct", 1);
-	call_user_function_ex(NULL, &class_obj, func_name, &retval, param_count, params, 0, NULL TSRMLS_CC);
-	zval_ptr_dtor(&func_name);
-	zval_ptr_dtor(&retval);*/
+	if (zend_hash_exists(&(*class_ce)->function_table, "__construct", 12)) {
+		zval *class_construct_retval;
+		CII_CALL_USER_METHOD_EX(&class_obj, "__construct", &class_construct_retval, param_count, params);
+		zval_ptr_dtor(&class_construct_retval);
+	}
 
+	efree(class_fullname);
 	CII_DESTROY_ACTIVE_SYMBOL_TABLE();
-	efree(lower_class);
 
 	return class_obj;
 }
@@ -377,9 +422,10 @@ PHP_FUNCTION(cii_load_class)
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &class, &class_len) == FAILURE ){
 		WRONG_PARAM_COUNT;
 	}
-	if(return_value_used){
+	zval *retval;
+	if( retval = cii_load_class(class, class_len, 0, NULL) ){
 		zval_ptr_dtor(return_value_ptr);
-		(*return_value_ptr) = load_class(class, 0, NULL);
+		(*return_value_ptr) = retval;
 		Z_ADDREF_P(*return_value_ptr);
 	}	
 }
@@ -437,11 +483,34 @@ PHP_FUNCTION(cii_config_item)
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &item, &item_len) == FAILURE ){
 		WRONG_PARAM_COUNT;
 	}
-	zval *config = cii_get_config();
-	zval **item_value;
-	if( zend_hash_find(Z_ARRVAL_P(config), item, item_len+1, (void**)&item_value) != FAILURE ){
-		RETURN_ZVAL(*item_value, 1, 0);
+	zval *retval;
+	if( retval = cii_config_item(item, item_len, NULL, 0) ){
+		RETURN_ZVAL(retval, 1, 0);
 	}
+}
+/**
+* Error Logging Interface
+*
+* We use this as a simple mechanism to access the logging
+* class and send messages to be logged.
+*
+* @param	string	the error level: 'error', 'debug' or 'info'
+* @param	string	the error message
+* @return	void
+*
+* function log_message($level, $message)
+*/
+PHP_FUNCTION(cii_log_message)
+{
+	char *level;
+	uint level_len;
+	char *message;
+	uint message_len;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss" ,&level, &level_len, &message, &message_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	cii_user_write_log(level, level_len, message, message_len);
 }
 
 
@@ -464,13 +533,13 @@ PHP_FUNCTION(cii_run)
 	zval *cii_benchmark_obj;
 	MAKE_STD_ZVAL(cii_benchmark_obj);
 	object_init_ex(cii_benchmark_obj, cii_benchmark_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Benchmark", 10, &cii_benchmark_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "benchmark", 10, &cii_benchmark_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_benchmark_ce->function_table, "__construct", 12)) {
 		zval *cii_benchmark_retval;
 		CII_CALL_USER_METHOD_EX(&cii_benchmark_obj, "__construct", &cii_benchmark_retval, 0, NULL);
 		zval_ptr_dtor(&cii_benchmark_retval);
 	}	
-	is_loaded("Benchmark");
+	cii_is_loaded("benchmark");
 	/*
 	*	Start the timer... tick tock tick tock...
 	*/
@@ -491,117 +560,117 @@ PHP_FUNCTION(cii_run)
 	zval *cii_hooks_obj;
 	MAKE_STD_ZVAL(cii_hooks_obj);
 	object_init_ex(cii_hooks_obj, cii_hooks_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Hooks", 6, &cii_hooks_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "hooks", 6, &cii_hooks_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_hooks_ce->function_table, "__construct", 12)) {
 		zval *cii_hooks_retval;
 		CII_CALL_USER_METHOD_EX(&cii_hooks_obj, "__construct", &cii_hooks_retval, 0, NULL);
 		zval_ptr_dtor(&cii_hooks_retval);
 	}	
-	is_loaded("Hooks");
+	cii_is_loaded("hooks");
 	/*
 	* load CII_Config object
 	*/
 	zval *cii_config_obj;
 	MAKE_STD_ZVAL(cii_config_obj);
 	object_init_ex(cii_config_obj, cii_config_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Config", 7, &cii_config_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "config", 7, &cii_config_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_config_ce->function_table, "__construct", 12)) {
 		zval *cii_config_retval;
 		CII_CALL_USER_METHOD_EX(&cii_config_obj, "__construct", &cii_config_retval, 0, NULL);
 		zval_ptr_dtor(&cii_config_retval);
 	}
-	is_loaded("Config");
+	cii_is_loaded("config");
 	/*
 	* load CII_Log object
 	*/
 	zval *cii_log_obj;
 	MAKE_STD_ZVAL(cii_log_obj);
 	object_init_ex(cii_log_obj, cii_log_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Log", 4, &cii_log_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "log", 4, &cii_log_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_log_ce->function_table, "__construct", 12)) {
 		zval *cii_log_retval;
 		CII_CALL_USER_METHOD_EX(&cii_log_obj, "__construct", &cii_log_retval, 0, NULL);
 		zval_ptr_dtor(&cii_log_retval);
 	}	
-	is_loaded("Log");
+	cii_is_loaded("log");
 	/*
 	* load CII_URI object
 	*/
 	zval *cii_uri_obj;
 	MAKE_STD_ZVAL(cii_uri_obj);
 	object_init_ex(cii_uri_obj, cii_uri_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "URI", 4, &cii_uri_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "uri", 4, &cii_uri_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_uri_ce->function_table, "__construct", 12)) {
 		zval *cii_uri_retval;
 		CII_CALL_USER_METHOD_EX(&cii_uri_obj, "__construct", &cii_uri_retval, 0, NULL);
 		zval_ptr_dtor(&cii_uri_retval);
 	}	
-	is_loaded("URI");
+	cii_is_loaded("uri");
 	/*
 	* load CII_Router object
 	*/
 	zval *cii_router_obj;
 	MAKE_STD_ZVAL(cii_router_obj);
 	object_init_ex(cii_router_obj, cii_router_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Router", 7, &cii_router_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "router", 7, &cii_router_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_router_ce->function_table, "__construct", 12)) {
 		zval *cii_router_retval;
 		CII_CALL_USER_METHOD_EX(&cii_router_obj, "__construct", &cii_router_retval, 0, NULL);
 		zval_ptr_dtor(&cii_router_retval);
 	}
-	is_loaded("Router");
+	cii_is_loaded("router");
 	/*
 	* load CII_Output object
 	*/
 	zval *cii_output_obj;
 	MAKE_STD_ZVAL(cii_output_obj);
 	object_init_ex(cii_output_obj, cii_output_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Output", 7, &cii_output_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "output", 7, &cii_output_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_output_ce->function_table, "__construct", 12)) {
 		zval *cii_output_retval;
 		CII_CALL_USER_METHOD_EX(&cii_output_obj, "__construct", &cii_output_retval, 0, NULL);
 		zval_ptr_dtor(&cii_output_retval);
 	}
-	is_loaded("Output");
+	cii_is_loaded("output");
 	/*
 	* 	load CII_Input object
 	*/
 	zval *cii_input_obj;
 	MAKE_STD_ZVAL(cii_input_obj);
 	object_init_ex(cii_input_obj, cii_input_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Input", 6, &cii_input_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "input", 6, &cii_input_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_input_ce->function_table, "__construct", 12)) {
 		zval *cii_input_retval;
 		CII_CALL_USER_METHOD_EX(&cii_input_obj, "__construct", &cii_input_retval, 0, NULL);
 		zval_ptr_dtor(&cii_input_retval);
 	}	
-	is_loaded("Input");
+	cii_is_loaded("input");
 	/*
 	* 	load CII_Lang object
 	*/
 	zval *cii_lang_obj;
 	MAKE_STD_ZVAL(cii_lang_obj);
 	object_init_ex(cii_lang_obj, cii_lang_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Lang", 5, &cii_lang_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "lang", 5, &cii_lang_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_lang_ce->function_table, "__construct", 12)) {
 		zval *cii_lang_retval;
 		CII_CALL_USER_METHOD_EX(&cii_lang_obj, "__construct", &cii_lang_retval, 0, NULL);
 		zval_ptr_dtor(&cii_lang_retval);
 	}	
-	is_loaded("Lang");
+	cii_is_loaded("lang");
 	/*
 	* load CII_Loader object
 	*/
 	zval *cii_loader_obj;
 	MAKE_STD_ZVAL(cii_loader_obj);
 	object_init_ex(cii_loader_obj, cii_loader_ce);
-	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "Loader", 7, &cii_loader_obj, sizeof(zval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(CII_G(classes)), "loader", 7, &cii_loader_obj, sizeof(zval *), NULL);
 	if (zend_hash_exists(&cii_loader_ce->function_table, "__construct", 12)) {
 		zval *cii_loader_retval;
 		CII_CALL_USER_METHOD_EX(&cii_loader_obj, "__construct", &cii_loader_retval, 0, NULL);
 		zval_ptr_dtor(&cii_loader_retval);
 	}
-	is_loaded("Loader");
+	cii_is_loaded("loader");
 	/*
 	*	Set a mark point for benchmarking
 	*/
@@ -931,6 +1000,7 @@ const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_is_https, NULL)
 	PHP_FE(cii_load_class, cii_load_class_arginfo)
 	PHP_FE(cii_is_loaded, cii_is_loaded_arginfo)
+	PHP_FE(cii_log_message, NULL)
 	PHP_FE(cii_stringify_attributes, NULL)
 	PHP_FE(cii_is_php, NULL)
 	PHP_FE_END

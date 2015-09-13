@@ -16,7 +16,7 @@ PHP_METHOD(cii_router, __construct)
 	/*
 	*	add cii_uri object into cii_router
 	*/
-	zval *uri = load_class("URI", 0, NULL);
+	zval *uri = cii_load_class("uri", 3, 0, NULL);
 	zend_update_property(cii_router_ce, getThis(), ZEND_STRL("uri"), uri TSRMLS_CC);
 	/*
 	*	update cii_uri::rsegments

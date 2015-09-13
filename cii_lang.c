@@ -173,7 +173,7 @@ PHP_METHOD(cii_lang, load)
 		char *p = NULL, orig;
 		char *fullfile;
 		uint fullfile_len;
-		if( Z_STRLEN_P(langfile) > 9 && (p = Z_STRVAL_P(langfile)+ (Z_STRLEN_P(langfile)-9)) && !strcmp(p, "_lang.php") ){
+		if( Z_STRLEN_P(langfile) > 9 && (p = Z_STRVAL_P(langfile) + (Z_STRLEN_P(langfile)-9)) && !strcmp(p, "_lang.php") ){
 			orig = *p;
 			*p = '\0';
 			fullfile_len = spprintf(&fullfile, 0, "%s%s", Z_STRVAL_P(langfile), "_lang.php");

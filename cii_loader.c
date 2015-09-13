@@ -132,17 +132,30 @@ PHP_METHOD(cii_loader, __get)
 	zval *value = zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), key, key_len, 1 TSRMLS_CC);
 	RETURN_ZVAL(value, 1, 0);
 }
-
+/**
+* View Loader
+*
+* Loads "view" files.
+*
+* @param	string	$view	View name
+* @param	array	$vars	An associative array of data
+*				to be extracted for use in the view
+* @param	bool	$return	Whether to return the view output
+*				or leave it to the Output class
+* @return	object|string
+*
+* public function view($view, $vars = array(), $return = FALSE)
+*/
 PHP_METHOD(cii_loader, view){
 	char *view;
 	uint view_len;
 	HashTable *data = NULL;
-	uint is_return = 0;
+	char is_return = 0;
 	zval **value;
 	char *file;
 	uint file_len;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|H!l" ,&view, &view_len, &data, &is_return) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|H!b" ,&view, &view_len, &data, &is_return) == FAILURE) {
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
 
@@ -197,7 +210,7 @@ PHP_METHOD(cii_loader, view){
 			zval *output;
 			MAKE_STD_ZVAL(output);
 			php_output_get_contents(output TSRMLS_CC);
-			cii_append_output(cii_output_ce, load_class("Output", 0, NULL), Z_STRVAL_P(output));
+			cii_append_output(cii_output_ce, cii_load_class("output", 6, 0, NULL), Z_STRVAL_P(output));
 			zval_ptr_dtor(&output);
 			php_output_discard(TSRMLS_C);
 		}
@@ -472,6 +485,77 @@ PHP_METHOD(cii_loader, helper){
 	RETURN_ZVAL(getThis(), 1, 0);
 }
 /**
+* Library Loader
+*
+* Loads and instantiates libraries.
+* Designed to be called from application controllers.
+*
+* @param	string	$library	Library name
+* @param	array	$params		Optional parameters to pass to the library class constructor
+* @param	string	$object_name	An optional object name to assign to
+* @return	object
+*
+* public function library($library, $params = NULL, $object_name = NULL)
+*/
+PHP_METHOD(cii_loader, library){
+	char *library;
+	uint library_len;
+	zval *params = NULL;
+	char *name = NULL;
+	uint name_len;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|z!s!", &library, &library_len, &params, &name, &name_len) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+
+	zval ***funcparams_call = NULL, ***funcparam_p;
+	uint func_arg_num = 0;
+	if( params ){
+		convert_to_array(params);
+
+		func_arg_num = Z_ARRVAL_P(params)->nNumOfElements;
+		funcparams_call = funcparam_p = (zval***)emalloc(sizeof(zval**) * func_arg_num);
+		HashPosition pos;
+		zval **value;
+		for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(params), &pos);
+	    	zend_hash_has_more_elements_ex(Z_ARRVAL_P(params), &pos) == SUCCESS;
+	    	zend_hash_move_forward_ex(Z_ARRVAL_P(params), &pos)){
+			if( zend_hash_get_current_data_ex(Z_ARRVAL_P(params), (void**)&value, &pos) == FAILURE ){
+				continue;
+			}
+			*funcparam_p++ = value;
+		}
+	}
+	zval *library_obj = cii_load_class(library, library_len, func_arg_num, funcparams_call);
+	if( funcparams_call ){
+		efree(funcparams_call);
+	}
+	/*
+	*	add new object to cii_controller
+	*/
+	if( library_obj ){
+		char need_free_name = 0;
+		if(name && CII_G(cii_controller_ce) && CII_G(cii_controller)){
+			if( Z_TYPE_P(zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, 1 TSRMLS_CC)) != IS_NULL ){
+				php_error(E_ERROR, "The library name you are loading is the name of a resource that is already being used: %s", name);
+			}
+		}else{
+			name = zend_str_tolower_dup(library, library_len);
+			name_len = library_len;
+			need_free_name = 1;
+		}
+		if( CII_G(cii_controller_ce) && CII_G(cii_controller) ){
+			zend_update_property(CII_G(cii_controller_ce), CII_G(cii_controller), name, name_len, library_obj TSRMLS_CC);
+		}
+		if( need_free_name ){
+			efree(name);
+		}
+	}	
+	/*
+	*	return this
+	*/
+	RETURN_ZVAL(getThis(), 1, 0);
+}
+/**
 * Database Loader
 *
 * @param	Array	$config		Database configuration options
@@ -591,6 +675,7 @@ zend_function_entry cii_loader_methods[] = {
 	PHP_ME(cii_loader, view, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader, model, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader, helper, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_loader, library, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_loader, database, NULL, ZEND_ACC_PUBLIC)
 	ZEND_FE_END
 };

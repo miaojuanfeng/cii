@@ -69,7 +69,7 @@ ZEND_API int cii_display(char *output, uint output_len, char **output_new, uint 
 	char *elapsed_time;
 	char elapsed_time_state;
 	
-	elapsed_time_state = elapsed_time_ex(cii_benchmark_ce, load_class("Benchmark", 0, NULL), "total_execution_time_start", 26, "total_execution_time_end", 24, 4, &elapsed_time);
+	elapsed_time_state = elapsed_time_ex(cii_benchmark_ce, cii_load_class("benchmark", 9, 0, NULL), "total_execution_time_start", 26, "total_execution_time_end", 24, 4, &elapsed_time);
 	/*
 	*	replace {elapsed_time}
 	*/

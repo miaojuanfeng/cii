@@ -101,6 +101,28 @@ ZEND_API int cii_write_log(int level, char *message)
 	*/
 	return 1;
 }
+/*
+*	cii_user_write_log
+*/
+ZEND_API int cii_user_write_log(char *level, uint level_len, char *message, uint message_len)
+{
+	char *log_threshold[4] = {"error", "debug", "info", "all"};
+	char *level_lower = zend_str_tolower_dup(level, level_len);
+	int p = -1;
+	int i;
+	for (i = 0; i < 4; i++)
+	{
+		if( !strcmp(level_lower, log_threshold[i]) ){
+			p = i+1;
+			break;
+		}
+	}
+	efree(level_lower);
+	if( p >= 0 ){
+		return cii_write_log(p, message);
+	}
+	return 0;
+}
 /**
 * Write Log File
 *
@@ -118,29 +140,13 @@ PHP_METHOD(cii_log, write_log)
 	uint level_len;
 	char *message;
 	uint message_len;
-	char *log_threshold[4] = {"error", "debug", "info", "all"};
+	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss" ,&level, &level_len, &message, &message_len) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	char *level_lower = zend_str_tolower_dup(level, level_len);
-	int p = -1;
-	int i;
-	for (i = 0; i < 4; i++)
-	{
-		if( !strcmp(level_lower, log_threshold[i]) ){
-			p = i+1;
-			break;
-		}
-	}
-	efree(level_lower);
-	if( p >= 0 ){
-		char retval;
-		retval = cii_write_log(p, message);
-		if( return_value_used ){
-			RETURN_BOOL(retval);
-		}
-	}else{
-		RETURN_BOOL(0);
+	char retval = cii_user_write_log(level, level_len, message, message_len);
+	if( return_value_used ){
+		RETURN_BOOL(retval);
 	}
 }	
 
