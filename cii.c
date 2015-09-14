@@ -991,6 +991,28 @@ PHP_FUNCTION(cii_is_php)
 	zval_dtor(&php_version);
 	RETURN_BOOL(compare != -1);
 }
+/**
+* Is CLI?
+*
+* Test to see if a request was made from the command line.
+*
+* @return 	bool
+*
+* function is_cli()
+*/
+PHP_FUNCTION(cii_is_cli)
+{
+	zval php_sapi;
+	zval stdin;
+	if( zend_get_constant("STDIN", 5, &stdin TSRMLS_CC) ||
+		zend_get_constant("PHP_SAPI", 8, &php_sapi TSRMLS_CC) && 
+		Z_TYPE(php_sapi) == IS_STRING && 
+		!strcmp(Z_STRVAL(php_sapi), "cli") ){
+		
+		RETURN_TRUE;
+	}
+	RETURN_FALSE;
+}
 
 const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_get_instance, cii_get_instance_arginfo)
@@ -1003,6 +1025,7 @@ const zend_function_entry cii_functions[] = {
 	PHP_FE(cii_log_message, NULL)
 	PHP_FE(cii_stringify_attributes, NULL)
 	PHP_FE(cii_is_php, NULL)
+	PHP_FE(cii_is_cli, NULL)
 	PHP_FE_END
 };
 
