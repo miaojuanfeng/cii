@@ -10,9 +10,6 @@ extern ZEND_API void cii_append_output(zend_class_entry *cii_output_ce, zval *ci
 	ZEND_ARG_ARRAY_INFO(0,data,1)
 	ZEND_ARG_INFO(0,return)
 ZEND_END_ARG_INFO()*/
-ZEND_BEGIN_ARG_INFO_EX(cii_model___get_arginfo, 0, 0, 1)
-	ZEND_ARG_INFO(0, key)
-ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(cii_loader___get_arginfo, 0, 0, 1)
 	ZEND_ARG_INFO(0, key)
@@ -29,18 +26,6 @@ ZEND_END_ARG_INFO()
 		EG(opline_ptr)			 = __old_opline_ptr; \
 		EG(active_op_array)		 = __old_op_array; \
 	}
-
-PHP_FUNCTION(cii_model___get)
-{
-	char *key;
-	uint key_len;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s" ,&key, &key_len) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-	zval *value = zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), key, key_len, 1 TSRMLS_CC);
-	RETURN_ZVAL(value, 1, 0);
-}
-
 
 ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 	zend_file_handle file_handle;
@@ -98,7 +83,15 @@ ZEND_API int cii_loader_import(char *path, int len, int use_path TSRMLS_DC) {
 
 	return 0;
 }
-
+/**
+* 	Class constructor
+*
+* 	Sets component load paths, gets the initial output buffering level.
+*
+* 	@return	void
+*
+* 	public function __construct()
+*/
 PHP_METHOD(cii_loader, __construct){
 	/*
 	* init cii_loader::_ob_level
@@ -121,8 +114,10 @@ PHP_METHOD(cii_loader, __construct){
 	*/
 	cii_write_log(3, "Loader Class Initialized");
 }
-/* PHP_ME_MAPPING( cii_loader, __get, NULL) */
-PHP_METHOD(cii_loader, __get)
+/*
+*	function cii___get()
+*/
+ZEND_API void cii___get(INTERNAL_FUNCTION_PARAMETERS)
 {
 	char *key;
 	uint key_len;
@@ -131,6 +126,21 @@ PHP_METHOD(cii_loader, __get)
 	}
 	zval *value = zend_read_property(CII_G(cii_controller_ce), CII_G(cii_controller), key, key_len, 1 TSRMLS_CC);
 	RETURN_ZVAL(value, 1, 0);
+}
+/*
+*	function __get(string key)
+*/
+PHP_FUNCTION(cii_model___get)
+{
+	cii___get(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+}
+/*  
+*	cii_loader::__get()
+*/
+//PHP_ME_MAPPING( cii_loader, __get, NULL)
+PHP_METHOD(cii_loader, __get)
+{
+	cii___get(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 }
 /**
 * View Loader
@@ -319,7 +329,7 @@ PHP_METHOD(cii_loader, model){
 			func.internal_function.fn_flags = ZEND_ACC_PUBLIC;
 			func.internal_function.num_args = 0;
 			func.internal_function.required_num_args = 0;
-			func.internal_function.arg_info = (zend_arg_info*)cii_model___get_arginfo+1;
+			func.internal_function.arg_info = (zend_arg_info*)cii_loader___get_arginfo+1;
 			func.internal_function.handler = ZEND_FN(cii_model___get);
 			if( zend_hash_add(&(*ce)->function_table, "__get", 6, &func, sizeof(zend_function), (void**)&func_pDest) == FAILURE ){
 				php_error(E_WARNING, "add __get method failed");
