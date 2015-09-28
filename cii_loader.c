@@ -264,12 +264,37 @@ PHP_METHOD(cii_loader, model){
 		RETURN_ZVAL(getThis(), 1, 0);
 	}
 	/*
+	*	check model file name
+	*/
+	char *p = NULL, orig;
+	char *fullfile;
+	uint fullfile_len;
+	if( model_len > 10 && (p = model + (model_len-10)) && !strcmp(p, "_model.php") ){
+		orig = *p;
+		*p = '\0';
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", model, "_model.php");
+	}else if( model_len > 6 && (p = model + (model_len-6)) && !strcmp(p, "_model") ){
+		orig = *p;
+		*p = '\0';
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", model, "_model.php");
+	}else if( model_len > 4 && (p = model + (model_len-4)) && !strcmp(p, ".php") ){
+		orig = *p;
+		*p = '\0';
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", model, "_model.php");
+	}else{
+		fullfile_len = spprintf(&fullfile, 0, "%s%s", model, "_model.php");
+	}
+	if(p && !*p){
+		*p = orig;
+	}
+	/*
 	*	model filepath
 	*/
 	if( !CII_G(apppath) ){
 		cii_get_apppath();
 	}
-	file_len = spprintf(&file, 0, "%s%s%s%s", CII_G(apppath), "models/", model, ".php");
+	file_len = spprintf(&file, 0, "%s%s%s", CII_G(apppath), "models/", fullfile);
+	efree(fullfile);
 	/*
 	*	is already included
 	*/
