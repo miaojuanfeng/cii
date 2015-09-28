@@ -187,11 +187,46 @@ PHP_METHOD(cii_output, display)
 		efree(output_new);
 	}
 }
+/**
+* Get Output
+*
+* Returns the current output string.
+*
+* @return	string
+*
+* public function get_output()
+*/
+PHP_METHOD(cii_output, get_output)
+{
+	zval *final_output = zend_read_property(cii_output_ce, getThis(), "final_output", 12, 1 TSRMLS_CC);
+	RETURN_STRING(Z_STRVAL_P(final_output), 1);
+}
+/**
+* Set Output
+*
+* Sets the output string.
+*
+* @param	string	$output	Output data
+* @return	CI_Output
+*
+* public function set_output($output)
+*/
+PHP_METHOD(cii_output, set_output)
+{
+	zval *output;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z" ,&output) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	zend_update_property(cii_output_ce, getThis(), "final_output", 12, output TSRMLS_CC);
+	RETURN_ZVAL(getThis(), 1, 0);
+}	
 
 zend_function_entry cii_output_methods[] = {
 	PHP_ME(cii_output, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(cii_output, append_output, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_output, display, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_output, get_output, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_output, set_output, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
