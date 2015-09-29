@@ -246,6 +246,85 @@ PHP_METHOD(cii_uri, ruri_string)
 	RETVAL_ZVAL(retval, 1, 0);
 	zval_ptr_dtor(&retval);
 }
+/**
+* cii_slash_segment
+*/
+ZEND_API char* cii_slash_segment(long n, char where, zval *segments)
+{
+	char *segment;
+	if( !segments ){
+		segment = "";
+	}
+	if( Z_TYPE_P(segments) != IS_ARRAY ){
+		convert_to_array(segments);
+	}
+	zval **value = NULL;
+	if( zend_hash_index_find(Z_ARRVAL_P(segments), n, (void**)&value) == FAILURE ){
+		segment = "";
+	}
+	if( value ){
+		segment = Z_STRVAL_PP(value);
+	}else{
+		segment = "";
+	}
+	char *retval;
+	switch(where){
+		case 't':
+			spprintf(&retval, 0, "%s%c", segment, '/');
+			break;
+		case 'l':
+			spprintf(&retval, 0, "%c%s", '/', segment);
+			break;
+		default:
+			spprintf(&retval, 0, "%c%s%c", '/', segment, '/');
+			break;
+	}
+	return retval;
+}
+/**
+* Slash segment
+*
+* Fetches an URI segment with a slash.
+*
+* @param	int	$n	Index
+* @param	string	$where	Where to add the slash ('t' == 'trailing' or 'l' == 'leading')
+* @return	string
+*
+* public function slash_segment($n, $where = 't')
+*/
+PHP_METHOD(cii_uri, slash_segment)
+{
+	ulong n;
+	char* where = "t";
+	uint where_len = 1;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|s", &n, &where, &where_len) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+	zval *segments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("segments"), 1 TSRMLS_CC);
+	RETURN_STRING(cii_slash_segment(n, where[0], segments), 0);
+}
+/**
+* Slash routed segment
+*
+* Fetches an URI routed segment with a slash.
+*
+* @param	int	$n	Index
+* @param	string	$where	Where to add the slash ('t' == 'trailing' or 'l' == 'leading')
+* @return	string
+*
+* public function slash_rsegment($n, $where = 't')
+*/
+PHP_METHOD(cii_uri, slash_rsegment)
+{
+	ulong n;
+	char* where = "t";
+	uint where_len = 1;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|s", &n, &where, &where_len) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+	zval *rsegments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("rsegments"), 1 TSRMLS_CC);
+	RETURN_STRING(cii_slash_segment(n, where[0], rsegments), 0);
+}
 
 zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
@@ -257,6 +336,8 @@ zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, total_rsegments, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, uri_string, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, ruri_string, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_uri, slash_segment, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_uri, slash_rsegment, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
