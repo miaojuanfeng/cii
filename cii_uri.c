@@ -222,6 +222,30 @@ PHP_METHOD(cii_uri, uri_string)
 	zval *uri_string = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("uri_string"), 1 TSRMLS_CC);
 	RETURN_ZVAL(uri_string, 1, 0);
 }
+/**
+* Fetch Re-routed URI string
+*
+* @return	string
+*
+* public function ruri_string()
+*/
+PHP_METHOD(cii_uri, ruri_string)
+{
+	zval *rsegments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("rsegments"), 1 TSRMLS_CC);
+	/*
+	*	implode uri
+	*/
+	zval *delim;
+	MAKE_STD_ZVAL(delim);
+	ZVAL_STRINGL(delim, "/", 1, 1);
+	zval *retval;
+	MAKE_STD_ZVAL(retval);
+	php_implode(delim, rsegments, retval TSRMLS_CC);
+	zval_ptr_dtor(&delim);
+
+	RETVAL_ZVAL(retval, 1, 0);
+	zval_ptr_dtor(&retval);
+}
 
 zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
@@ -232,6 +256,7 @@ zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, total_segments, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, total_rsegments, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, uri_string, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_uri, ruri_string, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
