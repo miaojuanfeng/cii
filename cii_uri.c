@@ -325,6 +325,65 @@ PHP_METHOD(cii_uri, slash_rsegment)
 	zval *rsegments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("rsegments"), 1 TSRMLS_CC);
 	RETURN_STRING(cii_slash_segment(n, where[0], rsegments), 0);
 }
+/**
+* Assoc to URI
+*
+* Generates a URI string from an associative array.
+*
+* @param	array	$array	Input array of key/value pairs
+* @return	string	URI string
+*
+* public function assoc_to_uri($array)
+*/
+PHP_METHOD(cii_uri, assoc_to_uri)
+{
+	HashTable *array;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "H", &array) == FAILURE){
+		WRONG_PARAM_COUNT;
+	}
+	zval *temp;
+	MAKE_STD_ZVAL(temp);
+	array_init(temp);
+	HashPosition pos;
+	char *key;
+	uint key_len;
+	int key_type;
+	ulong idx;
+	zval **value;
+	zval *key_zval;
+	for(zend_hash_internal_pointer_reset_ex(array, &pos);
+	    zend_hash_has_more_elements_ex(array, &pos) == SUCCESS;
+	    zend_hash_move_forward_ex(array, &pos)){
+		key_type = zend_hash_get_current_key_ex(array, &key, &key_len, &idx, 0, &pos);	
+		MAKE_STD_ZVAL(key_zval);
+		if( key_type == HASH_KEY_IS_STRING ){
+			ZVAL_STRINGL(key_zval, key, key_len-1, 1);
+		}else if( key_type == HASH_KEY_IS_LONG ){
+			ZVAL_LONG(key_zval, idx);
+		}else{
+			continue;
+		}
+		zend_hash_next_index_insert(Z_ARRVAL_P(temp), &key_zval, sizeof(zval *), NULL);
+		zend_hash_get_current_data_ex(array, (void**)&value, &pos);
+		CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
+		zend_hash_next_index_insert(Z_ARRVAL_P(temp), value, sizeof(zval *), NULL);
+	}
+	/*
+	*	implode uri
+	*/
+	zval *delim;
+	MAKE_STD_ZVAL(delim);
+	ZVAL_STRINGL(delim, "/", 1, 1);
+	zval *retval;
+	MAKE_STD_ZVAL(retval);
+	php_implode(delim, temp, retval TSRMLS_CC);
+	zval_ptr_dtor(&delim);
+
+	RETVAL_STRING(Z_STRVAL_P(retval), 1);
+	zval_ptr_dtor(&temp);
+	zval_ptr_dtor(&retval);
+}	
+
 
 zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
@@ -338,6 +397,7 @@ zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, ruri_string, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, slash_segment, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, slash_rsegment, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_uri, assoc_to_uri, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
