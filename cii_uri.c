@@ -382,7 +382,43 @@ PHP_METHOD(cii_uri, assoc_to_uri)
 	RETVAL_STRING(Z_STRVAL_P(retval), 1);
 	zval_ptr_dtor(&temp);
 	zval_ptr_dtor(&retval);
-}	
+}
+/**
+* cii_slash_segment
+*/
+ZEND_API zval* cii_uri_to_assoc(long n, zval *segments)
+{
+	zval *temp;
+	MAKE_STD_ZVAL(temp);
+	array_init(temp);
+	HashPosition pos;
+	long i = 0, j = 1;
+	char *key;
+	uint key_len;
+	zval **value;
+	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(segments), &pos);
+	    zend_hash_has_more_elements_ex(Z_ARRVAL_P(segments), &pos) == SUCCESS;
+	    zend_hash_move_forward_ex(Z_ARRVAL_P(segments), &pos)){
+		i++;
+		if( i < n ) continue;
+		zend_hash_get_current_data_ex(Z_ARRVAL_P(segments), (void**)&value, &pos);
+		if( j % 2 ){
+			key = Z_STRVAL_PP(value);
+			key_len = Z_STRLEN_PP(value);
+		}else{
+			CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
+			zend_hash_update(Z_ARRVAL_P(temp), key, key_len+1, value, sizeof(zval *), NULL);
+		}
+		j++;
+	}
+	if( !(j % 2) ){
+		zval *z_null;
+		MAKE_STD_ZVAL(z_null);
+		ZVAL_NULL(z_null);
+		zend_hash_update(Z_ARRVAL_P(temp), key, key_len+1, &z_null, sizeof(zval *), NULL);
+	}
+	return temp;
+}
 /**
 * URI to assoc
 *
@@ -408,44 +444,41 @@ PHP_METHOD(cii_uri, assoc_to_uri)
 PHP_METHOD(cii_uri, uri_to_assoc)
 {
 	long n = 3;
+	zval *retval;
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &n) == FAILURE){
 		WRONG_PARAM_COUNT;
 	}
 	zval *segments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("segments"), 1 TSRMLS_CC);
-	zval *temp;
-	MAKE_STD_ZVAL(temp);
-	array_init(temp);
-	HashPosition pos;
-	long i = 0, j = 1;
-	char *key;
-	uint key_len;
-	zval **value;
-	for(zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(segments), &pos);
-	    zend_hash_has_more_elements_ex(Z_ARRVAL_P(segments), &pos) == SUCCESS;
-	    zend_hash_move_forward_ex(Z_ARRVAL_P(segments), &pos)){
-		i++;
-		if( i < n ) continue;
-		zend_hash_get_current_data_ex(Z_ARRVAL_P(segments), (void**)&value, &pos);
-		if( j % 2 ){
-			php_printf("key\n");
-			key = Z_STRVAL_PP(value);
-			key_len = Z_STRLEN_PP(value);
-		}else{
-			php_printf("value\n");
-			CII_IF_ISREF_THEN_SEPARATE_ELSE_ADDREF(value);
-			zend_hash_update(Z_ARRVAL_P(temp), key, key_len+1, value, sizeof(zval *), NULL);
-		}
-		j++;
+	if( retval = cii_uri_to_assoc(n, segments) ){
+		RETVAL_ZVAL(retval, 1, 0);
+		zval_ptr_dtor(&retval);
 	}
-	if( !(j % 2) ){
-		php_printf("null value\n");
-		zval *z_null;
-		MAKE_STD_ZVAL(z_null);
-		ZVAL_NULL(z_null);
-		zend_hash_update(Z_ARRVAL_P(temp), key, key_len+1, &z_null, sizeof(zval *), NULL);
+}
+/**
+* Routed URI to assoc
+*
+* Identical to CI_URI::uri_to_assoc(), only it uses the re-routed
+* segment array.
+*
+* @see		CI_URI::uri_to_assoc()
+* @param 	int	$n		Index (default: 3)
+* @param 	array	$default	Default values
+* @return 	array
+*
+* public function ruri_to_assoc($n = 3, $default = array())
+*/
+PHP_METHOD(cii_uri, ruri_to_assoc)
+{
+	long n = 3;
+	zval *retval;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &n) == FAILURE){
+		WRONG_PARAM_COUNT;
 	}
-	RETVAL_ZVAL(temp, 1, 0);
-	zval_ptr_dtor(&temp);
+	zval *rsegments = zend_read_property(cii_uri_ce, getThis(), ZEND_STRL("rsegments"), 1 TSRMLS_CC);
+	if( retval = cii_uri_to_assoc(n, rsegments) ){
+		RETVAL_ZVAL(retval, 1, 0);
+		zval_ptr_dtor(&retval);
+	}
 }
 
 zend_function_entry cii_uri_methods[] = {
@@ -462,6 +495,7 @@ zend_function_entry cii_uri_methods[] = {
 	PHP_ME(cii_uri, slash_rsegment, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, assoc_to_uri, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(cii_uri, uri_to_assoc, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(cii_uri, ruri_to_assoc, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
